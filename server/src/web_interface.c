@@ -37,8 +37,11 @@ static void *event_handler(enum mg_event event,
  * The device_id field in the query string defines the device to be woken up.
  * Currently it is the MAC address of the device. The web server makes a call
  * to the sleep-proxy server to wake up the device. Then the server returns a
- * result, either success or failure, which is returned to the web client as
- * a JSON object (true for success and false for failure).
+ * result, which is returned to the web client as a JSON object.
+ *
+ * The returned object has two properties: "success" and "message". "success"
+ * can be either true or false. "message" is "ok" for success, and
+ * "no such device" or "not sleeping" for failure.
  */
 static void ajax_wake_up(struct mg_connection *,
                          const struct mg_request_info *);
@@ -48,9 +51,11 @@ static void ajax_wake_up(struct mg_connection *,
  *
  * There is no field in the query string. The web server makes a call to the
  * sleep-proxy server to get the list. The list is returned to the web client
- * as a JSON object. The following example shows the structure of the object.
- * Note that a device may have many network interfaces but only the interface
- * that communicates with the sleep-proxy server is relevant.
+ * as a JSON object.
+ *
+ * The following example shows the structure of the returned object. Note that
+ * a device may have many network interfaces but only the interface that
+ * communicates with the sleep-proxy server is relevant.
  *
  * [
  *     {"mac": "00:11:22:33:44:55", "ip": "10.0.0.1", "status": "on"},
@@ -123,7 +128,7 @@ static void ajax_wake_up(struct mg_connection *conn,
     // TODO call the server to wake up the device
     //
     mg_printf(conn, "%s", ajax_reply_start);
-    mg_printf(conn, "%s", "true");  // it never fails?
+    mg_printf(conn, "%s", "{\"success\": true, \"message\": \"ok\"}");
 }
 
 static void ajax_get_device_list(struct mg_connection *conn,
