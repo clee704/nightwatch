@@ -27,7 +27,7 @@ int main(void) {
     //
     // TODO the program should be a daemon
     //
-    if (chdir(".") < 0)
+    if (chdir("./www") < 0)
         error(2, errno, PROGNAME ": chdir");
 
     ctx = mg_start(&event_handler, mg_options);
