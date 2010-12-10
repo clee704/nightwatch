@@ -27,6 +27,8 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
     if (sock < 0)
+        // TODO need better error handling; it may be necessary to handle it
+        //        rather than just terminate the program
         error(2, errno, "send_magic_packet: socket");
 
     // drop root privileges if the executable is suid root
