@@ -27,15 +27,15 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
     if (sock < 0)
-        error(2, errno, "nitch_server: socket");
+        error(2, errno, "send_magic_packet: socket");
 
     // drop root privileges if the executable is suid root
     if (setuid(getuid()) < 0)
-        error(2, errno, "nitch_server: setuid");
+        error(2, errno, "send_magic_packet: setuid");
 
     addrp = ether_aton(dst_addr_str);
     if (addrp == NULL)
-        error(2, errno, "nitch_server: ether_aton");
+        error(2, errno, "send_magic_packet: ether_aton");
     dst_addr = *addrp;
 
     // get the source address from the interface name
@@ -45,14 +45,14 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
 
         strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
         if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0)
-            error(2, errno, "nitch_server: ioctl (SIOCGIFHWADDR)");
+            error(2, errno, "send_magic_packet: ioctl (SIOCGIFHWADDR)");
         memcpy(src_addr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, 6);
     }
 
     // build the magic packet
     packet = (unsigned char *) malloc(1000);
     if (packet == NULL)
-        error(2, errno, "nitch_server: malloc");
+        error(2, errno, "send_magic_packet: malloc");
     packet_sz = build_packet(dst_addr.ether_addr_octet,
                              src_addr.ether_addr_octet,
                              packet);
@@ -63,7 +63,7 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
 
         strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
         if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0)
-            error(2, errno, "nitch_server: ioctl (SIOCGIFINDEX)");
+            error(2, errno, "send_magic_packet: ioctl (SIOCGIFINDEX)");
 
         memset(&dst_sockaddr, 0, sizeof(dst_sockaddr));
         dst_sockaddr.sll_family = AF_PACKET;
@@ -75,7 +75,7 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
     // finally, send the packet!
     if (sendto(sock, packet, packet_sz, 0, (struct sockaddr *) &dst_sockaddr,
                sizeof(dst_sockaddr)) < 0)
-        error(2, errno, "nitch_server: sendto");
+        error(2, errno, "send_magic_packet: sendto");
 
     free(packet);
 }
@@ -89,6 +89,7 @@ static int build_packet(const unsigned char *dst_addr_octet,
     memcpy(packet + 0, dst_addr_octet, 6);  // MAC destination
     memcpy(packet + 6, src_addr_octet, 6);  // MAC source
     memcpy(packet + 12, "\x08\x42", 2);     // EtherType (0x0842 for WoL)
+
     memset(packet + 14, 0xff, 6);
     offset = 20;
     for (i = 0; i < 16; ++i, offset += 6)
