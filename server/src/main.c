@@ -1,9 +1,7 @@
 #include <stdio.h>
-#include <stdlib.h>
+#include "send_magic_packet.h"
 
-int
-main (int argc, char **argv)
+int main(int argc, char **argv)
 {
-  printf ("Hello from %s!\n", argv[0]);
-  return 0;
+    printf("I'm nitch_server.\n");
 }

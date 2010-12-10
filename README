@@ -1,0 +1,9 @@
+
+                       Nightwatch: a sleep-proxy suite
+
+Nightwatch is a set of programs to reduce overall power consumption of Linux
+deivces within LAN by sleeping the devices and waking them up only when needed.
+
+Nightwatch consists of two parts: A server that manages other devices and
+handles TCP/IP packets to sleeping devices and an agent that resides in devices
+to be managed, monitors the devices, etc.
