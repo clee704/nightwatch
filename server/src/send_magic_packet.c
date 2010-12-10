@@ -76,6 +76,8 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
     if (sendto(sock, packet, packet_sz, 0, (struct sockaddr *) &dst_sockaddr,
                sizeof(dst_sockaddr)) < 0)
         error(2, errno, "nitch_server: sendto");
+
+    free(packet);
 }
 
 static int build_packet(const unsigned char *dst_addr_octet,
