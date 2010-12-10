@@ -50,7 +50,7 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
     }
 
     // build the magic packet
-    packet = (unsigned char *) malloc(1000);
+    packet = (unsigned char *) malloc(200);
     if (packet == NULL)
         error(2, errno, "send_magic_packet: malloc");
     packet_sz = build_packet(dst_addr.ether_addr_octet,
