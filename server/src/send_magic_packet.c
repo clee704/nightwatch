@@ -3,11 +3,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <net/if.h>
+#include <netinet/ether.h>
+#include <netpacket/packet.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <net/if.h>
-#include <netpacket/packet.h>
-#include <netinet/ether.h>
+
 #include "send_magic_packet.h"
 
 static int build_packet(const unsigned char *dst_addr_octet,
