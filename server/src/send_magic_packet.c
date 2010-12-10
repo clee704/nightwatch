@@ -3,14 +3,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <net/if.h>
 #include <netinet/ether.h>
 #include <netpacket/packet.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-
 #include "send_magic_packet.h"
+
+//
+// TODO need better error handling; it may be necessary to handle it rather
+//      than just terminate the program
+//
 
 static int build_packet(const unsigned char *dst_addr_octet,
                         const unsigned char *src_addr_octet,
@@ -27,14 +30,13 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
     if (sock < 0)
-        // TODO need better error handling; it may be necessary to handle it
-        //        rather than just terminate the program
         error(2, errno, "send_magic_packet: socket");
 
     // drop root privileges if the executable is suid root
     if (setuid(getuid()) < 0)
         error(2, errno, "send_magic_packet: setuid");
 
+    // convert the destination address
     addrp = ether_aton(dst_addr_str);
     if (addrp == NULL)
         error(2, errno, "send_magic_packet: ether_aton");
@@ -92,6 +94,7 @@ static int build_packet(const unsigned char *dst_addr_octet,
     memcpy(packet + 6, src_addr_octet, 6);  // MAC source
     memcpy(packet + 12, "\x08\x42", 2);     // EtherType (0x0842 for WoL)
 
+    // write the content
     memset(packet + 14, 0xff, 6);
     offset = 20;
     for (i = 0; i < 16; ++i, offset += 6)
