@@ -30,9 +30,9 @@ var simulator = new (function () {
             switch (d.state) {
             case 'up':
                 d.totalUptime += diff1;
-                var a = Math.random() < .005;
+                var a = Math.random() < .0025;
                 var b = Math.random() < .5;
-                var c = Math.random() < .0005;
+                var c = Math.random() < .00025;
                 if (a)
                     d.changeState(b ? 'suspended' : 'hibernated');
                 if (c)
@@ -40,7 +40,7 @@ var simulator = new (function () {
                 break;
             case 'down':
                 d.totalDowntime += diff1;
-                var a = Math.random() < .001;
+                var a = Math.random() < .0005;
                 if (a)
                     d.changeState('up');
                 break;
@@ -53,7 +53,7 @@ var simulator = new (function () {
             default:  // suspended or hibernated
                 d.totalUptime += diff1;
                 d.sleepTime += diff1;
-                var a = Math.random() < .005;
+                var a = Math.random() < .0025;
                 if (a)
                     d.changeState('resuming');
                 break;
