@@ -19,10 +19,10 @@ static const char *ajax_error_start =
 static void get_qsvar(const struct mg_request_info *request_info,
                       const char *name, char *dst, size_t dst_len);
 
-void ajax_wake_up(struct mg_connection *conn,
-                  const struct mg_request_info *request_info)
+void ajax_resume(struct mg_connection *conn,
+                 const struct mg_request_info *request_info)
 {
-    char device_id[24];  // currently 17 is just enough for MAC address
+    char device_id[24];  // actually 17 is just enough for MAC address
 
     get_qsvar(request_info, "device_id", device_id, sizeof(device_id));
     if (strlen(device_id) == 0) {
@@ -40,7 +40,7 @@ void ajax_wake_up(struct mg_connection *conn,
 void ajax_get_device_list(struct mg_connection *conn,
                           const struct mg_request_info *unused)
 {
-    (void) unused;
+    (void) unused;  // suppress warning
     //
     // TODO call the server to get the list
     //

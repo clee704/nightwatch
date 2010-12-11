@@ -13,6 +13,7 @@
 //
 static const char *mg_options[] = {
     "listening_ports", "8080",
+    "document_root", "./www",
     "num_threads", "3",
     NULL
 };
@@ -27,8 +28,6 @@ int main(void) {
     //
     // TODO the program should be a daemon
     //
-    if (chdir("./www") < 0)
-        error(2, errno, PROGNAME ": chdir");
 
     ctx = mg_start(&event_handler, mg_options);
     if (ctx == NULL)
@@ -51,9 +50,9 @@ static void *event_handler(enum mg_event event,
         return NULL;
     else if (strcmp(method, "GET") != 0)
         return NULL;
-    else if (strcmp(uri, "/ajax/wake_up") == 0)
-        ajax_wake_up(conn, request_info);
-    else if (strcmp(uri, "/ajax/get_device_list") == 0)
+    else if (strcmp(uri, "/ajax/resume") == 0)
+        ajax_resume(conn, request_info);
+    else if (strcmp(uri, "/ajax/getdevicelist") == 0)
         ajax_get_device_list(conn, request_info);
     else
         return NULL;
