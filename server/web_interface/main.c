@@ -9,7 +9,7 @@
 #define PROGNAME "nitch_server_httpd"
 
 //
-// TODO we need to get some options from the config file
+// TODO We need to get some options from the config file
 //
 static const char *mg_options[] = {
     "listening_ports", "8080",
@@ -26,7 +26,7 @@ int main(void) {
     struct mg_context *ctx;
 
     //
-    // TODO the program should be a daemon
+    // TODO The program should be a daemon
     //
 
     ctx = mg_start(&event_handler, mg_options);

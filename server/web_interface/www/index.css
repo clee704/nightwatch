@@ -8,10 +8,6 @@ body {
   right: .5em;
 }
 
-#actions {
-  margin: .67em 0;
-}
-
 #nav ul, #actions ul {
   list-style-type: none;
   overflow: auto;
@@ -24,9 +20,13 @@ body {
   margin: 0 .5em;
 }
 
+#actions {
+  margin: .67em 0;
+}
+
 #actions ul li {
   float: left;
-  margin: 0 .17em;
+  margin: 0 .25em;
 }
 
 #device-list {
@@ -48,7 +48,7 @@ body {
   background: #ccc;
 }
 
-.checkbox, .mac, .ip, .status {
+.checkbox, .mac, .ip, .state {
   text-align: center;
 }
 

@@ -11,7 +11,7 @@
 #include "send_magic_packet.h"
 
 //
-// TODO need better error handling; it may be necessary to handle it rather
+// TODO Need better error handling; It may be necessary to handle it rather
 //      than just terminate the program
 //
 
@@ -32,17 +32,17 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
     if (sock < 0)
         error(2, errno, "send_magic_packet: socket");
 
-    // drop root privileges if the executable is suid root
+    // Drop root privileges if the executable is suid root
     if (setuid(getuid()) < 0)
         error(2, errno, "send_magic_packet: setuid");
 
-    // convert the destination address
+    // Convert the destination address
     addrp = ether_aton(dst_addr_str);
     if (addrp == NULL)
         error(2, errno, "send_magic_packet: ether_aton");
     dst_addr = *addrp;
 
-    // get the source address from the interface name
+    // Get the source address from the interface name
     {
         struct ifreq ifr;
         unsigned char *hwaddr = ifr.ifr_hwaddr.sa_data;
@@ -53,7 +53,7 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
         memcpy(src_addr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, 6);
     }
 
-    // build the magic packet
+    // Build the magic packet
     packet = (unsigned char *) malloc(200);
     if (packet == NULL)
         error(2, errno, "send_magic_packet: malloc");
@@ -61,7 +61,7 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
                              src_addr.ether_addr_octet,
                              packet);
 
-    // make dst_sockaddr for sendto()
+    // Make dst_sockaddr for sendto()
     {
         struct ifreq ifr;
 
@@ -76,7 +76,7 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
         memcpy(dst_sockaddr.sll_addr, dst_addr.ether_addr_octet, 6);
     }
 
-    // finally, send the packet!
+    // Finally, send the packet!
     if (sendto(sock, packet, packet_sz, 0, (struct sockaddr *) &dst_sockaddr,
                sizeof(dst_sockaddr)) < 0)
         error(2, errno, "send_magic_packet: sendto");
@@ -94,7 +94,7 @@ static int build_packet(const unsigned char *dst_addr_octet,
     memcpy(packet + 6, src_addr_octet, 6);  // MAC source
     memcpy(packet + 12, "\x08\x42", 2);     // EtherType (0x0842 for WoL)
 
-    // write the content
+    // Write the content
     memset(packet + 14, 0xff, 6);
     offset = 20;
     for (i = 0; i < 16; ++i, offset += 6)
