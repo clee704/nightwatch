@@ -1,35 +1,44 @@
 <!DOCTYPE html>
 <html lang=en>
-  <head>
-    <meta charset=UTF-8>
-    <title>Nightwatch Web Interface</title>
-    <link rel=stylesheet href=style.css type=text/css>
-  </head>
-  <body>
-    <h1>Nightwatch Web Interface</h1>
-    <p>
-      <button>Refresh</button>
-      <button>Resume</button>
-      <button>Suspend</button>
-      <button>Hibernate</button>
-    </p>
-    <table id=device-list>
-      <thead>
-        <tr>
-          <th><input id=select-all-or-none type=checkbox></th>
-          <th>MAC Address</th>
-          <th>IP Address</th>
-          <th>Status</th>
-          <th>Monitored Since</th>
-          <th>Total Uptime (% of Sleep)</th>
-          <th>Total Downtime</th>
-          <th>Availability</th>
-        </tr>
-      </thead>
-      <tbody>
-      </tbody>
-    </table>
-    <script src=jquery-1.4.4.min.js type=text/javascript></script>
-    <script src=script.js type=text/javascript></script>
-  </body>
+ <head>
+  <meta charset=UTF-8>
+  <title>Nightwatch Web Interface</title>
+  <link rel=stylesheet href=common.css type=text/css>
+  <link rel=stylesheet href=index.css type=text/css>
+ </head>
+ <body>
+  <h1>Nightwatch Web Interface</h1>
+  <div id=nav>
+   <ul>
+    <li><a href=#demo>Demo</a></li>
+    <li><a href=help.html class=new-window>Help</a></li>
+   </ul>
+  </div>
+  <div id=actions>
+   <ul>
+    <li><button>Refresh</button></li>
+    <li><button>Resume</button></li>
+    <li><button>Suspend</button></li>
+    <li><button>Hibernate</button></li>
+   </ul>
+  </div>
+  <table id=device-list>
+   <thead>
+    <tr>
+     <th><input id=select-all-or-none type=checkbox></th>
+     <th>MAC Address</th>
+     <th>IP Address</th>
+     <th>Status</th>
+     <th>Monitored Since</th>
+     <th>Total Uptime (% of Sleep)</th>
+     <th>Total Downtime</th>
+     <th>Availability</th>
+    </tr>
+   </thead>
+   <tbody>
+   </tbody>
+  </table>
+  <script src=jquery-1.4.4.min.js type=text/javascript></script>
+  <script src=index.js type=text/javascript></script>
+ </body>
 </html>

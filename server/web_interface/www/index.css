@@ -1,0 +1,90 @@
+body {
+  position: relative;
+}
+
+#nav {
+  position: absolute;
+  top: 0;
+  right: .5em;
+}
+
+#actions {
+  margin: .67em 0;
+}
+
+#nav ul, #actions ul {
+  list-style-type: none;
+  overflow: auto;
+  padding: 0;
+  margin: 0;
+}
+
+#nav ul li {
+  float: left;
+  margin: 0 .5em;
+}
+
+#actions ul li {
+  float: left;
+  margin: 0 .17em;
+}
+
+#device-list {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+#device-list th, #device-list td {
+  border-top: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  padding: 3px 6px;
+}
+
+.total-uptime .graph div {
+  padding: 4px 6px;
+}
+
+#device-list th {
+  background: #ccc;
+}
+
+.checkbox, .mac, .ip, .status {
+  text-align: center;
+}
+
+.monitored-since, .total-uptime, .total-downtime {
+  text-align: left;
+}
+
+.availability {
+  text-align: right;
+}
+
+.up {
+  background: #0c0;
+}
+
+.suspended, .hibernated {
+  background: #bff2bf;
+}
+
+.resuming {
+  background: #cc0;
+}
+
+.down {
+  background: #c00;
+}
+
+.total-uptime {
+  border-left: 1px solid #bff2bf;
+  border-right: 1px solid #0c0;
+  padding: 0 !important;
+}
+
+.total-uptime .graph {
+  background: #bff2bf;
+  border: 1px solid #bff2bf;
+  white-space: nowrap;
+  height: 100%;
+}

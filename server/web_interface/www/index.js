@@ -11,6 +11,11 @@ selectAllOrNone.click(function () {
     deviceListTbody.find('input').attr('checked', this.checked);
 });
 
+$('body').delegate('a.new-window', 'click', function () {
+    window.open(this.href);
+    return false;
+});
+
 function getDeviceList() {
     $.get('/ajax/getdevicelist', function (deviceList) {
         updateTable(deviceList);
