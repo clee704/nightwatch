@@ -6,7 +6,7 @@
  *
  * The device_id field in the query string defines the device to be resumed.
  * Currently it is the MAC address of the device. The web server makes a call
- * to the sleep-proxy server to resume the device. Then the server returns a
+ * to the sleep proxy server to resume the device. Then the server returns a
  * result, which is returned to the web client as a JSON object.
  *
  * The returned object has two properties: "success" and "message". "success"
@@ -24,7 +24,7 @@ void ajax_get_device_info(struct mg_connection *,
  * Process the URI /ajax/getdevicelist.
  *
  * There is no field in the query string. The web server makes a call to the
- * sleep-proxy server to get the list. The list is returned to the web client
+ * sleep proxy server to get the list. The list is returned to the web client
  * as a JSON object.
  *
  * The returned object is an array of objects, each for one device. The
@@ -47,7 +47,7 @@ void ajax_get_device_info(struct mg_connection *,
  * "hibernated", and "down". "down" means the device is not responding.
  *
  * Note that a device may have many network interfaces but only the interface
- * that communicates with the sleep-proxy server is relevant.
+ * that communicates with the sleep proxy server is relevant.
  */
 void ajax_get_device_list(struct mg_connection *,
                           const struct mg_request_info *);
