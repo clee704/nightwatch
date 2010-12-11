@@ -22,7 +22,7 @@ static void get_qsvar(const struct mg_request_info *request_info,
 void ajax_resume(struct mg_connection *conn,
                  const struct mg_request_info *request_info)
 {
-    char device_id[24];  // actually 17 is just enough for MAC address
+    char device_id[24];  // In fact, 17 is just enough for MAC address
 
     get_qsvar(request_info, "device_id", device_id, sizeof(device_id));
     if (strlen(device_id) == 0) {
@@ -31,7 +31,7 @@ void ajax_resume(struct mg_connection *conn,
         return;
     }
     //
-    // TODO call the server to wake up the device
+    // TODO Call the server to wake up the device
     //
     mg_printf(conn, "%s", ajax_reply_start);
     mg_printf(conn, "%s", "{\"success\": true, \"message\": \"ok\"}");
@@ -40,9 +40,9 @@ void ajax_resume(struct mg_connection *conn,
 void ajax_get_device_list(struct mg_connection *conn,
                           const struct mg_request_info *unused)
 {
-    (void) unused;  // suppress warning
+    (void) unused;  // Suppress warning
     //
-    // TODO call the server to get the list
+    // TODO Call the server to get the list
     //
     mg_printf(conn, "%s", ajax_reply_start);
     mg_printf(conn, "%s", "[]");

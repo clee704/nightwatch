@@ -17,7 +17,8 @@ void ajax_resume(struct mg_connection *, const struct mg_request_info *);
 
 void ajax_suspend(struct mg_connection *, const struct mg_request_info *);
 
-void ajax_device_info(struct mg_connection *, const struct mg_request_info *);
+void ajax_get_device_info(struct mg_connection *,
+                          const struct mg_request_info *);
 
 /**
  * Process the URI /ajax/getdevicelist.
@@ -33,7 +34,7 @@ void ajax_device_info(struct mg_connection *, const struct mg_request_info *);
  *     {
  *         "mac": "00:11:22:33:44:55",
  *         "ip": "10.0.0.2",
- *         "status": "up",
+ *         "state": "up",
  *         "monitoredSince": 1267369283000,
  *         "totalUptime": 3517003,
  *         "sleepTime": 2300910,
@@ -42,7 +43,7 @@ void ajax_device_info(struct mg_connection *, const struct mg_request_info *);
  * ]
  *
  * A total uptime includes a sleep time. Times are represented in milliseconds.
- * Currently there are 6 statuses for a device: "up", "resuming", "suspended",
+ * Currently there are 6 states for a device: "up", "resuming", "suspended",
  * "hibernated", and "down". "down" means the device is not responding.
  *
  * Note that a device may have many network interfaces but only the interface
