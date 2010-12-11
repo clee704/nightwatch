@@ -56,5 +56,8 @@ body {
     border: 1px solid #bff2bf;
     white-space: nowrap;
     height: 100%;
+}
+
+.total-uptime .graph div {
     padding: .25em .5em;
 }
