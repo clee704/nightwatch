@@ -41,10 +41,8 @@ var simulator = new (function () {
             case 'down':
                 d.totalDowntime += diff1;
                 var a = Math.random() < .001;
-                if (a || d._resume && diff2 > d._timeToResume) {
+                if (a)
                     d.changeState('up');
-                    delete d._resume;
-                }
                 break;
             case 'resuming':
                 d.totalUptime += diff1;
@@ -148,8 +146,6 @@ function resume(queryString) {
         return;
     else if (d.state !== 'down')
         d.changeState('resuming');
-    else if (Math.random() < .25)
-        d._resume = true;
 }
 
 function suspend(queryString) {
