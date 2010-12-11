@@ -1,32 +1,15 @@
+(function (window, document, undefined) {
+
+
 var deviceListTable = $('#device-list');
 var deviceListTbody = deviceListTable.find('tbody');
 var selectAllOrNone = $('#select-all-or-none');
-
-$(function () {
-    getDeviceList();
-    setInterval(getDeviceList, 30000);
-});
-
-selectAllOrNone.click(function () {
-    deviceListTbody.find('input').attr('checked', this.checked);
-});
-
-$('body').delegate('a.new-window', 'click', function () {
-    window.open(this.href);
-    return false;
-});
-
-function getDeviceList() {
-    $.get('/ajax/getdevicelist', function (deviceList) {
-        updateTable(deviceList);
-    });
-}
 
 var rowTemplate = '<tr>'
     + '<td class="checkbox"><input type="checkbox"></td>'
     + '<td class="mac value"></td>'
     + '<td class="ip value"></td>'
-    + '<td class="status value"></td>'
+    + '<td class="state value"></td>'
     + '<td class="monitored-since value"></td>'
     + '<td class="total-uptime"><div class="graph"><div>'
     + '<span class="value"></span> (<span class="value"></span>%)'
@@ -35,7 +18,24 @@ var rowTemplate = '<tr>'
     + '<td class="availability"><span class="value"></span>%</td>'
     + '</tr>';
 
-function updateTable(deviceList) {
+var demoMode = false;
+var get = $.get;
+
+
+function enterDemoMode() {
+    $('#demo').attr('href', '.').html('Exit Demo Mode');
+    $.getScript('demo.js', function () {
+        demoMode = true;
+        get = window.demo.get;
+        updateDeviceList();
+    });
+}
+
+function updateDeviceList() {
+    get('/ajax/getdevicelist', fillTable);
+}
+
+function fillTable(deviceList) {
     deviceListTbody.detach();
     var rows = deviceListTbody.find('tr');
     var n = Math.min(rows.length, deviceList.length);
@@ -53,9 +53,9 @@ function updateTable(deviceList) {
         fields[0].innerHTML = d.mac;
         fields[1].innerHTML = d.ip;
         $(fields[2]).removeClass(fields[2].innerHTML);
-        $(fields[2]).addClass(d.status);
-        fields[2].innerHTML = d.status;
-        fields[3].innerHTML = toDateString(d.monitoredSince);
+        $(fields[2]).addClass(d.state);
+        fields[2].innerHTML = d.state;
+        fields[3].innerHTML = toDateTimeString(d.monitoredSince);
         fields[4].innerHTML = toTimeString(d.totalUptime);
         var pctSleep = toPercentage3(d.sleepTime, d.totalUptime);
         fields[5].innerHTML = pctSleep;
@@ -67,36 +67,71 @@ function updateTable(deviceList) {
     deviceListTable.append(deviceListTbody);
 }
 
-function toDateString(milliseconds) {
-    return new Date(milliseconds).toUTCString();
+function toDateTimeString(milliseconds) {
+    var d = new Date(milliseconds);
+    var year = d.getFullYear();
+    var month = zeroPad2(d.getMonth() + 1);
+    var date = zeroPad2(d.getDate());
+    var hours = zeroPad2(d.getHours());
+    var minutes = zeroPad2(d.getMinutes());
+    var seconds = zeroPad2(d.getSeconds());
+    var timezoneOffset = zeroPad2(d.getTimezoneOffset() / -60);
+    var ymd = [year, month, date];
+    var hms = [hours, minutes, seconds];
+    return ymd.join('-') + ' ' + hms.join(':') + '+' + timezoneOffset;
 }
 
 function toTimeString(milliseconds) {
+    // The bitwise OR operator "|" here substitutes for Math.floor().
+    // Be cautious: It only works for a number N such that
+    // -2**31-1 < N < 2**31.
     var t = milliseconds / 1000 | 0;
-    var seconds = t % 60 | 0; t = t / 60 | 0;
-    var minutes = t % 60 | 0; t = t / 60 | 0;
-    var hours = t % 24 | 0; t = t / 24 | 0;
-    var days = t % 7 | 0; t = t / 7 | 0;
-    var weeks = t | 0;
-    var tokens1 = [];
-    var tokens2 = [];
-    if (weeks)
-        tokens1.push(weeks, 'weeks');
-    if (days)
-        tokens1.push(days, 'days');
-    if (hours < 10)
-        tokens2.push('0');
-    tokens2.push(hours, ':');
-    if (minutes < 10)
-        tokens2.push('0');
-    tokens2.push(minutes, ':');
-    if (seconds < 10)
-        tokens2.push('0');
-    tokens2.push(seconds);
-    tokens1.push(tokens2.join(''));
-    return tokens1.join(' ');
+    var seconds = zeroPad2(t % 60 | 0); t = t / 60 | 0;
+    var minutes = zeroPad2(t % 60 | 0); t = t / 60 | 0;
+    var hours = zeroPad2(t % 24 | 0); t = t / 24 | 0;
+    var days = t | 0;
+    var hms = [hours, minutes, seconds];
+    return (days ? days + ' days ' : '') + hms.join(':');
 }
 
 function toPercentage3(a, b) {
     return new Number(a / b * 100).toPrecision(3);
 }
+
+function zeroPad2(v) {
+    return v < 10 ? '0' + v : v;
+}
+
+
+// Check or uncheck all checkboxes according to the master checkbox
+selectAllOrNone.click(function () {
+    deviceListTbody.find('input').attr('checked', this.checked);
+});
+
+// Open the page in a new window when an a.new-window is clicked
+$(document).delegate('a.new-window', 'click', function () {
+    window.open(this.href);
+    return false;
+});
+
+// Enter the demo mode if requested
+window.onhashchange = function () {
+    if (location.hash === '#demo')
+        enterDemoMode();
+};
+
+// When the DOM is ready
+$(function () {
+
+    // Update the device list every 15 seconds
+    updateDeviceList();
+    setInterval(updateDeviceList, 15000);
+
+    // Enter the demo mode if requested
+    if (location.hash === '#demo')
+        enterDemoMode();
+
+});
+
+
+})(this, this.document);
