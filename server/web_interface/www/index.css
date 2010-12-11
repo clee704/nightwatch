@@ -34,6 +34,14 @@ body {
   font-size: 13px;
 }
 
+#device-list tr.selected {
+  background: #f2f2f2;
+}
+
+#device-list th {
+  background: #ccc;
+}
+
 #device-list th, #device-list td {
   border-top: 1px solid #ccc;
   border-bottom: 1px solid #ccc;
@@ -42,10 +50,6 @@ body {
 
 .total-uptime .graph div {
   padding: 4px 6px;
-}
-
-#device-list th {
-  background: #ccc;
 }
 
 .checkbox, .mac, .ip, .state {
