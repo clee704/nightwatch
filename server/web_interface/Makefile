@@ -2,10 +2,10 @@ target = nitch_server_httpd
 sources = main.c ajax.c mongoose/mongoose.c
 objects = $(sources:.c=.o)
 
+VPATH = mongoose
 CC = gcc
 CFLAGS = -W -Wall -O2 -Imongoose
 LDFLAGS = -ldl -pthread
-VPATH = mongoose
 
 all: $(target)
 

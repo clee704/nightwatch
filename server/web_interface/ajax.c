@@ -24,10 +24,10 @@ void ajax_resume(struct mg_connection *conn,
 {
     char device_id[24];  // In fact, 17 is just enough for MAC address
 
-    get_qsvar(request_info, "device_id", device_id, sizeof(device_id));
+    get_qsvar(request_info, "deviceId", device_id, sizeof(device_id));
     if (strlen(device_id) == 0) {
         mg_printf(conn, "%s", ajax_error_start);
-        mg_printf(conn, "%s", "device_id must be specified");
+        mg_printf(conn, "%s", "deviceId must be specified");
         return;
     }
     //
@@ -37,8 +37,8 @@ void ajax_resume(struct mg_connection *conn,
     mg_printf(conn, "%s", "{\"success\": true, \"message\": \"ok\"}");
 }
 
-void ajax_get_device_list(struct mg_connection *conn,
-                          const struct mg_request_info *unused)
+void ajax_device_list(struct mg_connection *conn,
+                      const struct mg_request_info *unused)
 {
     (void) unused;  // Suppress warning
     //

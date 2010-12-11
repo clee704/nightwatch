@@ -52,8 +52,8 @@ static void *event_handler(enum mg_event event,
         return NULL;
     else if (strcmp(uri, "/ajax/resume") == 0)
         ajax_resume(conn, request_info);
-    else if (strcmp(uri, "/ajax/getdevicelist") == 0)
-        ajax_get_device_list(conn, request_info);
+    else if (strcmp(uri, "/ajax/devicelist") == 0)
+        ajax_device_list(conn, request_info);
     else
         return NULL;
     return "processed";

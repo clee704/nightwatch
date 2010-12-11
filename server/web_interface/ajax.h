@@ -2,9 +2,9 @@
 #define AJAX_H
 
 /**
- * Process the URI /ajax/resume?device_id=<>.
+ * Resume the specified device. The request URI is /ajax/resume?deviceId=<>.
  *
- * The device_id field in the query string defines the device to be resumed.
+ * The deviceId field in the query string defines the device to be resumed.
  * Currently it is the MAC address of the device. The web server makes a call
  * to the sleep proxy server to resume the device. Then the server returns a
  * result, which is returned to the web client as a JSON object.
@@ -17,11 +17,9 @@ void ajax_resume(struct mg_connection *, const struct mg_request_info *);
 
 void ajax_suspend(struct mg_connection *, const struct mg_request_info *);
 
-void ajax_get_device_info(struct mg_connection *,
-                          const struct mg_request_info *);
-
 /**
- * Process the URI /ajax/getdevicelist.
+ * Return the list of the devices that are connected to the sleep proxy server.
+ * The request URI is /ajax/devicelist.
  *
  * There is no field in the query string. The web server makes a call to the
  * sleep proxy server to get the list. The list is returned to the web client
@@ -49,7 +47,6 @@ void ajax_get_device_info(struct mg_connection *,
  * Note that a device may have many network interfaces but only the interface
  * that communicates with the sleep proxy server is relevant.
  */
-void ajax_get_device_list(struct mg_connection *,
-                          const struct mg_request_info *);
+void ajax_device_list(struct mg_connection *, const struct mg_request_info *);
 
 #endif /* AJAX_H */
