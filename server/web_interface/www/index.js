@@ -1,10 +1,15 @@
 (function (window, document, undefined) {
 
 
+// Frequently used DOM elements
 var deviceListTable = $('#device-list');
 var deviceListTbody = deviceListTable.find('tbody');
 var selectAllOrNone = $('#select-all-or-none');
 
+var get = $.get;
+
+
+/* @closure */
 var updateDeviceList = (function () {
 
     var rowTemplate = '<tr>'
@@ -24,7 +29,7 @@ var updateDeviceList = (function () {
         + '<td class="availability"><span class="value"></span>%</td>'
         + '</tr>';
 
-    return function () {
+    return function updateDeviceList() {
         get('/ajax/devicelist', fillTable);
     };
 
@@ -87,7 +92,8 @@ var updateDeviceList = (function () {
         var hours = zeroPad2(t % 24 | 0); t = t / 24 | 0;
         var days = t | 0;
         var hms = [hours, minutes, seconds];
-        return days ? days + ' days ' + hms.join(':') : hms.join(':');
+        return days ? days + (days === 1 ? ' day ' : ' days ') + hms.join(':')
+                    : hms.join(':');
     }
 
     function toPercentage3(a, b) {
@@ -99,19 +105,17 @@ var updateDeviceList = (function () {
     }
 })();
 
+/* @closure */
 var updateDeviceListPeriodically = (function () {
 
     var updateTimer;
 
-    return function () {
+    return function updateDeviceListPeriodically() {
         clearTimeout(updateTimer);
         updateDeviceList();
-        updateTimer = setInterval(updateDeviceList, 15000);
+        updateTimer = setInterval(updateDeviceList, 5000);
     }
 })();
-
-var get = $.get;
-
 
 function enterDemoModeIfHashMatches() {
     if (location.hash !== '#demo')
@@ -140,6 +144,7 @@ deviceListTbody.delegate('input', 'change', function () {
     $(this).parents('tr')[method]('selected');
 });
 
+// Define actions
 $('button#refresh').click(function () {
     updateDeviceListPeriodically();
     this.disabled = true;
@@ -153,7 +158,7 @@ $('button#resume').click(function () {
     var n = checked.length;
     if (n === 0)
         return;
-    updateDeviceListPeriodically();
+    updateDeviceList();
     for (var i = 0; i < n; ++i) {
         var c = checked[i];
         var d = $.data(c, 'deviceInfo');
@@ -166,13 +171,51 @@ $('button#resume').click(function () {
         else if (confirm('Resume ' + name + '?'))
             get('/ajax/resume?deviceId=' + deviceId);
     }
-    updateDeviceListPeriodically();
+    updateDeviceList();
 });
 
+// TODO DRY 
 $('button#suspend').click(function () {
+    var checked = deviceListTbody.find('input:checked');
+    var n = checked.length;
+    if (n === 0)
+        return;
+    updateDeviceList();
+    for (var i = 0; i < n; ++i) {
+        var c = checked[i];
+        var d = $.data(c, 'deviceInfo');
+        var deviceId = d.mac;
+        var state = d.state;
+        // Define human-friendly name for dialog boxes
+        var name = (d.hostname ? (d.hostname + ' ') : '') + '(' + d.ip + ')';
+        if (state !== 'up')
+            alert(name + ' is not up.');
+        else if (confirm('Suspend ' + name + '?'))
+            get('/ajax/suspend?type=suspend&deviceId=' + deviceId);
+    }
+    updateDeviceList();
 });
 
+// TODO DRY
 $('button#hibernate').click(function () {
+    var checked = deviceListTbody.find('input:checked');
+    var n = checked.length;
+    if (n === 0)
+        return;
+    updateDeviceList();
+    for (var i = 0; i < n; ++i) {
+        var c = checked[i];
+        var d = $.data(c, 'deviceInfo');
+        var deviceId = d.mac;
+        var state = d.state;
+        // Define human-friendly name for dialog boxes
+        var name = (d.hostname ? (d.hostname + ' ') : '') + '(' + d.ip + ')';
+        if (state !== 'up')
+            alert(name + ' is not up.');
+        else if (confirm('Hibernate ' + name + '?'))
+            get('/ajax/suspend?type=hibernate&deviceId=' + deviceId);
+    }
+    updateDeviceList();
 });
 
 // Open the page in a new window when an a.new-window is clicked

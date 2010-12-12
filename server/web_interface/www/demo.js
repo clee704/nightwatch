@@ -1,60 +1,48 @@
 (function (window, document, undefined) {
 
 
-var simulator = new (function () {
+function EnvironmentSimulator(devices) {
 
     this.start = start;
 
     var time;
 
-    // for making random devices
-    var states = ['up', 'suspended', 'hibernated', 'resuming', 'down'];
-    var hostnames = ['martini', 'mimosa', 'bacardi', 'kahlua'];
-    var used = {hostnames: {length: 0}, mac: {}, ip: {}};
-
     function start() {
-        var n = 10;
-        for (var i = 0; i < n; ++i) {
-            var d = makeRandomDevice(i, n);
-            devices.push(d);
-            devicesById[d.mac] = d;
-        }
-        time = now();
+        time = Date.now();
         setInterval(simulate, 1000);
     }
 
     function simulate() {
-        var currTime = now();
-        var diff1 = currTime - time;
+        var currTime = Date.now();
+        var interval = currTime - time;
         for (var i = 0, n = devices.length; i < n; ++i) {
             var d = devices[i];
-            var diff2 = currTime - d._lastStateChange;
             switch (d.state) {
             case 'up':
-                d.totalUptime += diff1;
+                d.totalUptime += interval;
                 var a = Math.random() < .0025;
                 var b = Math.random() < .5;
-                var c = Math.random() < .00025;
+                var c = Math.random() < .0001;
                 if (a)
                     d.changeState(b ? 'suspended' : 'hibernated');
                 if (c)
                     d.changeState('down');
                 break;
             case 'down':
-                d.totalDowntime += diff1;
+                d.totalDowntime += interval;
                 var a = Math.random() < .0005;
                 if (a)
                     d.changeState('up');
                 break;
             case 'resuming':
-                d.totalUptime += diff1;
-                d.sleepTime += diff1;
-                if (diff2 > d._timeToResume)
+                d.totalUptime += interval;
+                d.sleepTime += interval;
+                if (currTime - d._lastStateChange > d._resumeTime)
                     d.changeState('up');
                 break;
             default:  // suspended or hibernated
-                d.totalUptime += diff1;
-                d.sleepTime += diff1;
+                d.totalUptime += interval;
+                d.sleepTime += interval;
                 var a = Math.random() < .0025;
                 if (a)
                     d.changeState('resuming');
@@ -63,67 +51,111 @@ var simulator = new (function () {
         }
         time = currTime;
     }
+}
 
-    // Mock object constructor!
-    function Device(hostname, mac, ip, state, monitoredSince, totalUptime,
-            sleepTime, totalDowntime) {
-        this.hostname = hostname;
-        this.mac = mac;
-        this.ip = ip;
-        this.state = state;
-        this.monitoredSince = monitoredSince;
-        this.totalUptime = totalUptime;
-        this.sleepTime = sleepTime;
-        this.totalDowntime = totalDowntime;
-        this._timeToResume = randomInt(5000, 15000);
-        this._lastStateChange = now();
+
+function AjaxHandler(devices) {
+
+    this.handle = handle;
+
+    var devicesById = devices.indexBy(function (d) { return d.mac; });
+    var handlers = {
+        '/ajax/resume': resume,
+        '/ajax/suspend': suspend,
+        '/ajax/devicelist': getDeviceList
+    };
+
+    function handle(url, callback) {
+        var i = url.indexOf('?');
+        var path = i < 0 ? url : url.substring(0, i);
+        var queryString = i < 0 ? '' : url.substring(i + 1);
+        handlers[path](queryString, callback);
     }
 
-    Device.prototype.changeState = function (state) {
-        this.state = state;
-        this._lastStateChange = now();
+    function resume(queryString) {
+        var deviceId = /deviceId=(.*)/.exec(queryString)[1];
+        var d = devicesById[deviceId];
+        if (d.state === 'up' || d.state === 'resuming')
+            return;
+        else if (d.state !== 'down')
+            d.changeState('resuming');
+    }
+
+    function suspend(queryString) {
+        var deviceId = /deviceId=([^&]*)/.exec(queryString)[1];
+        var suspendType = /type=([^&]*)/.exec(queryString)[1];
+        var d = devicesById[deviceId];
+        if (d.state === 'up')
+            d.changeState(suspendType.replace(/e?$/, 'ed'));
+    }
+
+    function getDeviceList(queryString, callback) {
+        callback(devices);
+    }
+}
+
+
+/* @singleton */
+var mockFactory = new (function MockFactory() {
+
+    this.make = make;
+
+    var pool = {
+        states: [
+            'up', 'up', 'up', 'up', 'up', 'suspended', 'suspended',
+            'hibernated', 'resuming', 'down'
+        ],
+        hostnames: [
+            'martini', 'mimosa', 'bacardi', 'kahlua', '', '', '', '', '', ''
+        ],
+        used: {mac: {}, ip: {}}
+    };
+
+    function make(n) {
+        var devices = [];
+        for (var i = 0; i < n; ++i)
+            devices.push(makeRandomDevice(i, n));
+        devices.sort(function (a, b) {
+            return a.ip.value - b.ip.value;
+        });
+        return devices;
     }
 
     function makeRandomDevice(i, n) {
-        var hostname = '';
-        var numAvailableHostnames = hostnames.length - used.hostnames.length;
-        if (randomInt(0, n - i - 1) < numAvailableHostnames)
-            hostname = rollExclude(used.hostnames, pick, hostnames);
-        var mac = rollExclude(used.mac, randomMac);
-        var ip = rollExclude(used.ip, randomIp);
-        var state = pick(states);
-        var currTime = now();
-        var monitoredSince = currTime + randomInt(-600 * 1e6, -300 * 1e6);
-        var totalDowntime = randomInt(.5 * 1e6, 20 * 1e6);
-        var totalUptime = currTime - monitoredSince - totalDowntime;
-        var sleepTime = Math.random() * .9 * totalUptime;
+        var hostname = pick(pool.hostnames);
+        var mac = rollEx(randomMac, pool.used.mac);
+        var ip = rollEx(randomIp, pool.used.ip);
+        var state = pick(pool.states);
+        var currTime = Date.now();
+        var duration = randomInt(0, 300 * 1e6);
+        var monitoredSince = currTime - duration;
+        var totalDowntime = randomInt(0, Math.min(20 * 1e6, duration));
+        var totalUptime = duration - totalDowntime;
+        var sleepTime = Math.floor(Math.random() * .95 * totalUptime);
         return new Device(hostname, mac, ip, state, monitoredSince,
             totalUptime, sleepTime, totalDowntime);
     }
 
     function randomMac() {
-        var a = new Number(randomInt(0, 255) + 256).toString(16).substring(1);
-        var b = new Number(randomInt(0, 255) + 256).toString(16).substring(1);
-        return '00:11:22:33:' + a + ':' + b;
+        return '00:11:22:33:' + randomHex(2) + ':' + randomHex(2);
     }
 
     function randomIp() {
         return '10.0.0.' + randomInt(2, 192);
     }
 
-    function rollExclude(exclude, random, args) {
+    function rollEx(random, exclude) {
         while (true) {
-            var n = random(args);
+            var n = random();
             if (exclude[n])
                 continue;
             exclude[n] = true;
-            ++exclude.length;
             return n;
         }
     }
 
     function pick(sequence) {
-        return sequence[randomInt(0, sequence.length - 1)];
+        return sequence.splice(randomInt(0, sequence.length - 1), 1)[0];
     }
 
     // Return a random integer N such that a <= N <= b.
@@ -134,52 +166,81 @@ var simulator = new (function () {
         return Math.floor(Math.random() * c) % c + a;
     }
 
-    function now() {
-        // IE8 and less doesn't have Date.now()
-        return Date.now ? Date.now() : new Date().getTime();
+    function randomHex(n) {
+        var a = [];
+        for (var i = 0; i < n; ++i)
+            a.push(new Number(randomInt(0, 15)).toString(16));
+        return a.join('');
+    }
+
+    // Mock object constructor
+    function Device(hostname, mac, ip, state, monitoredSince, totalUptime,
+            sleepTime, totalDowntime) {
+        this.hostname = hostname;
+        this.mac = mac;
+        this.ip = new IpAddress(ip);
+        this.state = state;
+        this.monitoredSince = monitoredSince;
+        this.totalUptime = totalUptime;
+        this.sleepTime = sleepTime;
+        this.totalDowntime = totalDowntime;
+        this._resumeTime = randomInt(3500, 12500);
+        this._lastStateChange = Date.now();
+    }
+
+    Device.prototype.changeState = function (state) {
+        this._lastStateChange = Date.now();
+        if (this.state === 'hibernated' && state === 'resuming')
+            this._lastStateChange += 10000;
+        this.state = state;
+    }
+
+    function IpAddress(str) {
+        this.str = str;
+        var b = str.split('.');
+        var value = 0;
+        for (var i = 0, n = b.length; i < n; ++i)
+            value = value * 256 + Number(b[i]);
+        this.value = value;
+    }
+
+    IpAddress.prototype.toString = function () {
+        return this.str;
     }
 });
 
-var devices = [];
 
-var devicesById = {};
+(function extendLanguage() {
 
-var ajaxHandlers = {
-    '/ajax/resume': resume,
-    '/ajax/suspend': suspend,
-    '/ajax/devicelist': getDeviceList
-};
+    Date.now = Date.now || function () {
+        new Date().getTime();
+    };
 
-
-function resume(queryString) {
-    var deviceId = /deviceId=(.*)/.exec(queryString)[1];
-    var d = devicesById[deviceId];
-    if (d.state === 'up' || d.state === 'resuming')
-        return;
-    else if (d.state !== 'down')
-        d.changeState('resuming');
-}
-
-function suspend(queryString) {
-    console.log('demo: suspend(' + queryString + ')');
-}
-
-function getDeviceList(queryString, callback) {
-    callback(devices);
-}
+    Array.prototype.indexBy = Array.prototype.indexBy || function (index) {
+        var o = {};
+        for (var i = 0, n = this.length; i < n; ++i) {
+            var e = this[i];
+            o[index(e)] = e;
+        }
+        return o;
+    };
+})();
 
 
-simulator.start();
+(function init() {
 
-window.demo = {
+    var devices = mockFactory.make(10);
+    var simulator = new EnvironmentSimulator(devices);
+    var handler = new AjaxHandler(devices);
 
-    get: function (url, callback) {
-        var i = url.indexOf('?');
-        var path = i < 0 ? url : url.substring(0, i);
-        var queryString = i < 0 ? '' : url.substring(i + 1);
-        ajaxHandlers[path](queryString, callback);
-    }
-};
+    window.demo = {
+        get: function (url, callback) {
+            handler.handle(url, callback);
+        }
+    };
+
+    simulator.start();
+})();
 
 
 })(this, this.document);
