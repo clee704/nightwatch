@@ -48,11 +48,7 @@ body {
   padding: 3px 6px;
 }
 
-.total-uptime .graph div {
-  padding: 4px 6px;
-}
-
-.checkbox, .mac, .ip, .state {
+.checkbox, .hostname, .ip, .mac, .state {
   text-align: center;
 }
 
@@ -66,6 +62,10 @@ body {
 
 .up {
   background: #0c0;
+}
+
+.state {
+  width: 5.5em;  /* should be long enough to accommodate "hibernated" */
 }
 
 .suspended, .hibernated {
@@ -83,12 +83,29 @@ body {
 .total-uptime {
   border-left: 1px solid #bff2bf;
   border-right: 1px solid #0c0;
-  padding: 0 !important;
+  overflow: hidden;
+
+  /*
+   * Undo the padding defined by the '#device-list td' selector.
+   * '.total-uptime .content' will define it.
+   */
+  padding: 0 !important;  
+}
+
+.total-uptime .wrapper {
+  position: relative;
 }
 
 .total-uptime .graph {
   background: #bff2bf;
-  border: 1px solid #bff2bf;
-  white-space: nowrap;
-  height: 100%;
+  position: absolute;
+  height: 10em;
+  margin-top: -2em;
+  z-index: 0;
+}
+
+.total-uptime .content {
+  padding: 3px 6px;
+  position: relative;
+  z-index: 10;
 }

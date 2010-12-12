@@ -9,11 +9,13 @@ var simulator = new (function () {
 
     // for making random devices
     var states = ['up', 'suspended', 'hibernated', 'resuming', 'down'];
-    var usedAddresses = {mac: {}, ip: {}};
+    var hostnames = ['martini', 'mimosa', 'bacardi', 'kahlua'];
+    var used = {hostnames: {length: 0}, mac: {}, ip: {}};
 
     function start() {
-        for (var i = 0; i < 10; ++i) {
-            var d = makeRandomDevice();
+        var n = 10;
+        for (var i = 0; i < n; ++i) {
+            var d = makeRandomDevice(i, n);
             devices.push(d);
             devicesById[d.mac] = d;
         }
@@ -63,8 +65,9 @@ var simulator = new (function () {
     }
 
     // Mock object constructor!
-    function Device(mac, ip, state, monitoredSince, totalUptime, sleepTime,
-            totalDowntime) {
+    function Device(hostname, mac, ip, state, monitoredSince, totalUptime,
+            sleepTime, totalDowntime) {
+        this.hostname = hostname;
         this.mac = mac;
         this.ip = ip;
         this.state = state;
@@ -81,27 +84,21 @@ var simulator = new (function () {
         this._lastStateChange = now();
     }
 
-    function makeRandomDevice() {
-        var mac = rollExclude(randomMac, usedAddresses.mac);
-        var ip = rollExclude(randomIp, usedAddresses.ip);
-        var state = states[randomInt(0, states.length - 1)];
+    function makeRandomDevice(i, n) {
+        var hostname = '';
+        var numAvailableHostnames = hostnames.length - used.hostnames.length;
+        if (randomInt(0, n - i - 1) < numAvailableHostnames)
+            hostname = rollExclude(used.hostnames, pick, hostnames);
+        var mac = rollExclude(used.mac, randomMac);
+        var ip = rollExclude(used.ip, randomIp);
+        var state = pick(states);
         var currTime = now();
         var monitoredSince = currTime + randomInt(-600 * 1e6, -300 * 1e6);
         var totalDowntime = randomInt(.5 * 1e6, 20 * 1e6);
         var totalUptime = currTime - monitoredSince - totalDowntime;
         var sleepTime = Math.random() * .9 * totalUptime;
-        return new Device(mac, ip, state, monitoredSince, totalUptime, sleepTime,
-            totalDowntime);
-    }
-
-    function rollExclude(random, exclude) {
-        while (true) {
-            var n = random();
-            if (exclude[n])
-                continue;
-            exclude[n] = true;
-            return n;
-        }
+        return new Device(hostname, mac, ip, state, monitoredSince,
+            totalUptime, sleepTime, totalDowntime);
     }
 
     function randomMac() {
@@ -112,6 +109,21 @@ var simulator = new (function () {
 
     function randomIp() {
         return '10.0.0.' + randomInt(2, 192);
+    }
+
+    function rollExclude(exclude, random, args) {
+        while (true) {
+            var n = random(args);
+            if (exclude[n])
+                continue;
+            exclude[n] = true;
+            ++exclude.length;
+            return n;
+        }
+    }
+
+    function pick(sequence) {
+        return sequence[randomInt(0, sequence.length - 1)];
     }
 
     // Return a random integer N such that a <= N <= b.
