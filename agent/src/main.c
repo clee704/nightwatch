@@ -9,6 +9,9 @@ enum REQ {SUSP, NTFY, STAT};
 int
 main (int argc, char **argv)
 {
+	pthread_t p_thread[2];
+	int thr_id;
+	int a=1;
 	pid_t pid, sid;
 	
 	pid = fork();
@@ -28,15 +31,32 @@ main (int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	read_config();
+	
+
+	//make thread
+	if( pthread_create(&p_thread[0], NULL, sleep_listener, NULL))
+	{
+		//thread error
+		printf("thread make error\n");
+	}
+	if ( pthread_create(&p_thread[1], NULL, request_handler, NULL)){
+		printf("thread make error2\n");
+	}
+	pthread_join(p_thread[0], NULL);
+	pthread_join(p_thread[1], NULL);
 
 	close(STDIN_FILENO);
 	close(STDERR_FILENO);
-	close(STDOUT_FILENO);
-	while (1) {
-		sleep(1);
-	}
+//	close(STDOUT_FILENO);
 	exit(EXIT_SUCCESS);
 
+}
+void *
+request_handler()
+{
+	while(1){
+		sleep(1);
+	}
 }
 void
 send_host_name(int serverfd)
@@ -97,6 +117,56 @@ make_connect(char *server, int port)
 int
 go_to_sleep ()
 {
-	system("echo -n mem > /sys/power/state");
+	system("pm-suspend");
 	return 0;
+}
+void *
+sleep_listener()
+{
+	DBusConnection *connection;
+	DBusMessage *msg;
+	DBusError error;
+	int ret;
+	
+
+	dbus_error_init(&error);
+
+	connection = dbus_bus_get (DBUS_BUS_SYSTEM, &error);
+
+	if( connection == NULL )
+	{
+		printf("Failed to open connection to bus: %s\n",
+				error.message);
+		dbus_error_free(&error);
+		return ;
+	}
+	
+	ret = dbus_bus_request_name(connection, "nitch.agent.signal.sink", DBUS_NAME_FLAG_REPLACE_EXISTING , &error);
+	if( dbus_error_is_set(&error)){
+		printf("Name Error %s\n", error.message);
+		dbus_error_free(&error);
+		return ;
+	}
+	dbus_bus_add_match(connection, "type='signal',interface='agent.signal.Type'", &error);
+	if(dbus_error_is_set(&error)){
+		printf("Match Error %s\n", error.message);
+		return ;
+	}
+
+	while(1)
+	{
+		dbus_connection_read_write(connection, 0);
+		msg = dbus_connection_pop_message(connection);
+
+		if (NULL== msg)
+		{
+			sleep(0.1);
+			continue;
+		}
+		if(dbus_message_is_signal(msg, "agent.signal.Type","Test")){
+			//do something here
+			system("echo -n 'test' > /home/ninkin/test");
+			printf("gotit\n");
+		}
+	}
 }
