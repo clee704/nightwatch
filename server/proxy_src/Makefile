@@ -1,4 +1,4 @@
-target = nitch_server
+target = nitch-proxyd
 sources = main.c daemon.c send_magic_packet.c
 objects = $(sources:.c=.o)
 
@@ -12,7 +12,7 @@ all: $(target)
 $(target): $(objects)
 	$(CC) $(LDFLAGS) -o $@ $^ 
 
-main.o: main.c daemonize.h send_magic_packet.h
+main.o: main.c daemon.h send_magic_packet.h
 
 daemon.o: daemon.c daemon.h
 

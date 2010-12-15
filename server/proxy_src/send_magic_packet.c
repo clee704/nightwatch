@@ -14,11 +14,13 @@
 
 #include "send_magic_packet.h"
 
-static int build_packet(const unsigned char *dst_addr_octet,
-                        const unsigned char *src_addr_octet,
-                        unsigned char *packet);
+static int
+build_packet(const unsigned char *dst_addr_octet,
+             const unsigned char *src_addr_octet,
+             unsigned char *packet);
 
-int send_magic_packet(const char *dst_addr_str, const char *ifname_in)
+int
+send_magic_packet(const char *dst_addr_str, const char *ifname_in)
 {
     int sock;
     struct sockaddr_ll dst_sockaddr;
@@ -84,9 +86,10 @@ int send_magic_packet(const char *dst_addr_str, const char *ifname_in)
     return 0;
 }
 
-static int build_packet(const unsigned char *dst_addr_octet,
-                        const unsigned char *src_addr_octet,
-                        unsigned char *packet)
+static int
+build_packet(const unsigned char *dst_addr_octet,
+             const unsigned char *src_addr_octet,
+             unsigned char *packet)
 {
     int offset, i;
 

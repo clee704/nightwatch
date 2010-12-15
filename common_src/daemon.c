@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include <fcntl.h>
+#include <signal.h>
 #include <syslog.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -17,7 +18,8 @@
 #include "daemon.h"
 
 // This is based on code originally by Richard Stevens APUE
-void daemonize(const char *cmd)
+void
+daemonize(const char *cmd)
 {
     pid_t pid;
     struct rlimit rl;
@@ -76,17 +78,15 @@ void daemonize(const char *cmd)
     }
 }
 
-int write_pid(const char *dir, const char *name)
+int
+write_pid(const char *filename)
 {
     static char buffer[512];
     FILE *fp;
     int size;
     pid_t pid;
 
-    size = snprintf(buffer, sizeof(buffer), "%s/%s.pid", dir, name);
-    if (size < 0 || (int) sizeof(buffer) < size)
-        return -1;
-    fp = fopen(buffer, "w");
+    fp = fopen(filename, "w");
     if (fp == NULL)
         return -1;
     pid = getpid();
@@ -98,4 +98,16 @@ int write_pid(const char *dir, const char *name)
     if (fclose(fp) == EOF)
         return -1;
     return 0;
+}
+
+int
+register_signal_handler(int signum, void handler(int))
+{
+    struct sigaction sa;
+
+    sa.sa_handler = handler;
+    sigemptyset(&sa.sa_mask);
+    sigaddset(&sa.sa_mask, signum);
+    sa.sa_flags = 0;
+    return sigaction(signum, &sa, NULL);
 }

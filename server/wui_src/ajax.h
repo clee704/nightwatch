@@ -13,7 +13,8 @@
  * can be either true or false. "message" is "ok" for success, and
  * "no such device" or "already up or resuming" for failure.
  */
-void ajax_resume(struct mg_connection *, const struct mg_request_info *);
+void
+ajax_resume(struct mg_connection *, const struct mg_request_info *);
 
 /**
  * Suspend (to memory) the specified device. The request URI is
@@ -22,7 +23,8 @@ void ajax_resume(struct mg_connection *, const struct mg_request_info *);
  * The detail is similar to ajax_resume(). The messages for failure are
  * "no such device" and "already suspended".
  */
-void ajax_suspend(struct mg_connection *, const struct mg_request_info *);
+void
+ajax_suspend(struct mg_connection *, const struct mg_request_info *);
 
 /**
  * Return the list of the devices that are connected to the sleep proxy server.
@@ -55,6 +57,7 @@ void ajax_suspend(struct mg_connection *, const struct mg_request_info *);
  * Note that a device may have many network interfaces but only the interface
  * that communicates with the sleep proxy server is relevant.
  */
-void ajax_device_list(struct mg_connection *, const struct mg_request_info *);
+void
+ajax_device_list(struct mg_connection *, const struct mg_request_info *);
 
 #endif /* AJAX_H */

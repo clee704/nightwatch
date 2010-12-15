@@ -1,17 +1,26 @@
-#ifndef DAEMONIZE_H
-#define DAEMONIZE_H
+#ifndef DAEMON_H
+#define DAEMON_H
 
 /**
  * Make the calling process a daemon.
  *
  * It terminates the program on error by calling error().
  */
-void daemonize(const char *cmd);
+void
+daemonize(const char *cmd);
 
 /**
- * Write the current process's PID to <dir>/<name>.pid and return
- * 0 on success, -1 on error.
+ * Write the current process's PID to the file and return 0 on success,
+ * -1 on error. errno is set on error.
  */
-int write_pid(const char *dir, const char *name);
+int
+write_pid(const char *filename);
 
-#endif /* DAEMONIZE_H */
+/**
+ * Register the signal handler for the specified signal and return 0 on
+ * success, -1 on error. errno is set on error.
+ */
+int
+register_signal_handler(int signum, void handler(int));
+
+#endif /* DAEMON_H */

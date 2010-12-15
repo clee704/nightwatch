@@ -10,6 +10,7 @@
  * If the interface is not specified (ifname is NULL), then the default
  * interface name "eth0" is used.
  */
-int send_magic_packet(const char *dst_addr, const char *ifname);
+int
+send_magic_packet(const char *dst_addr, const char *ifname);
 
 #endif /* SEND_MAGIC_PACKET_H */
