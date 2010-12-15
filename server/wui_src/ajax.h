@@ -2,7 +2,8 @@
 #define AJAX_H
 
 /**
- * Resume the specified device. The request URI is /ajax/resume?deviceId=<>.
+ * Resume the specified device. The request URI is /ajax/resume?deviceId=<id>,
+ * where <id> is replaced by the actual value.
  *
  * The deviceId field in the query string defines the device to be resumed.
  * Currently it is the MAC address of the device. The web server makes a call
@@ -18,7 +19,7 @@ ajax_resume(struct mg_connection *, const struct mg_request_info *);
 
 /**
  * Suspend (to memory) the specified device. The request URI is
- * /ajax/suspend?deviceId=<>.
+ * /ajax/suspend?deviceId=<id>, where <id> is replaced by the actual value.
  *
  * The detail is similar to ajax_resume(). The messages for failure are
  * "no such device" and "already suspended".
@@ -39,8 +40,9 @@ ajax_suspend(struct mg_connection *, const struct mg_request_info *);
  *
  * [
  *     {
- *         "mac": "00:11:22:33:44:55",
+ *         "hostname": "mimosa",
  *         "ip": "10.0.0.2",
+ *         "mac": "00:11:22:33:44:55",
  *         "state": "up",
  *         "monitoredSince": 1267369283000,
  *         "totalUptime": 3517003,
@@ -49,10 +51,10 @@ ajax_suspend(struct mg_connection *, const struct mg_request_info *);
  *     }
  * ]
  *
- * A total uptime includes a sleep time. Times are represented in milliseconds.
- * Currently there are 6 states for a device: "up", "resuming", "suspended",
- * and "down". "down" means the device is not responding, not it is actually
- * down.
+ * Hostname can be an empty string. Total uptime includes sleep time. Times
+ * are represented in milliseconds. Currently there are 6 states for a device:
+ * "up", "resuming", "suspended", and "down". "down" means the device is not
+ * responding, not it is actually down.
  *
  * Note that a device may have many network interfaces but only the interface
  * that communicates with the sleep proxy server is relevant.
