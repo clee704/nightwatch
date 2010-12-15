@@ -9,7 +9,60 @@ var selectAllOrNone = $('#select-all-or-none');
 var get = $.get;
 
 
-/* @closure */
+function refresh() {
+    updateDeviceListPeriodically();
+    this.disabled = true;
+    setTimeout($.proxy(function () {
+        this.disabled = false;
+    }, this), 1000);
+}
+
+function resume(deviceId, state, name) {
+    if (state === 'up' || state === 'resuming')
+        alert(name + ' is already up or resuming.');
+    else if (confirm('Resume ' + name + '?'))
+        get('/ajax/resume?deviceId=' + deviceId);
+}
+
+function suspend(deviceId, state, name) {
+    if (state !== 'up')
+        alert(name + ' is not up.');
+    else if (confirm('Suspend ' + name + '?'))
+        get('/ajax/suspend?type=suspend&deviceId=' + deviceId);
+}
+
+function enterDemoModeIfHashMatches() {
+    if (location.hash !== '#demo')
+        return;
+    $('#demo').attr('href', '.').html('Exit Demo Mode');
+    $.getScript('demo.js', function () {
+        get = window.demo.get;
+        updateDeviceList();
+    });
+}
+
+function forEachBoxChecked(callback) {
+    return function () {
+        var checkboxes = deviceListTbody.find('input:checked');
+        var n = checkboxes.length;
+        if (n === 0)
+            return;
+        updateDeviceList();
+        for (var i = 0; i < n; ++i) {
+            var c = checkboxes[i];
+            var d = $.data(c, 'deviceInfo');
+            var deviceId = d.mac;
+            var state = d.state;
+            // Define human-friendly name for dialog boxes
+            var name = (d.hostname ? (d.hostname + ' ') : '')
+                + '(' + d.ip + ')';
+            callback(deviceId, state, name);
+        }
+        updateDeviceList();
+    };
+}
+
+/* @function */
 var updateDeviceList = (function () {
 
     var rowTemplate = '<tr>'
@@ -105,27 +158,15 @@ var updateDeviceList = (function () {
     }
 })();
 
-/* @closure */
+/* @function */
 var updateDeviceListPeriodically = (function () {
-
     var updateTimer;
-
     return function updateDeviceListPeriodically() {
         clearTimeout(updateTimer);
         updateDeviceList();
         updateTimer = setInterval(updateDeviceList, 5000);
     }
 })();
-
-function enterDemoModeIfHashMatches() {
-    if (location.hash !== '#demo')
-        return;
-    $('#demo').attr('href', '.').html('Exit Demo Mode');
-    $.getScript('demo.js', function () {
-        get = window.demo.get;
-        updateDeviceList();
-    });
-}
 
 
 // Check or uncheck all checkboxes according to the master checkbox
@@ -145,56 +186,9 @@ deviceListTbody.delegate('input', 'change', function () {
 });
 
 // Define actions
-$('button#refresh').click(function () {
-    updateDeviceListPeriodically();
-    this.disabled = true;
-    setTimeout($.proxy(function () {
-        this.disabled = false;
-    }, this), 1000);
-});
-
-$('button#resume').click(function () {
-    var checked = deviceListTbody.find('input:checked');
-    var n = checked.length;
-    if (n === 0)
-        return;
-    updateDeviceList();
-    for (var i = 0; i < n; ++i) {
-        var c = checked[i];
-        var d = $.data(c, 'deviceInfo');
-        var deviceId = d.mac;
-        var state = d.state;
-        // Define human-friendly name for dialog boxes
-        var name = (d.hostname ? (d.hostname + ' ') : '') + '(' + d.ip + ')';
-        if (state === 'up' || state === 'resuming')
-            alert(name + ' is already up or resuming.');
-        else if (confirm('Resume ' + name + '?'))
-            get('/ajax/resume?deviceId=' + deviceId);
-    }
-    updateDeviceList();
-});
-
-// TODO DRY 
-$('button#suspend').click(function () {
-    var checked = deviceListTbody.find('input:checked');
-    var n = checked.length;
-    if (n === 0)
-        return;
-    updateDeviceList();
-    for (var i = 0; i < n; ++i) {
-        var c = checked[i];
-        var d = $.data(c, 'deviceInfo');
-        var deviceId = d.mac;
-        var state = d.state;
-        // Define human-friendly name for dialog boxes
-        var name = (d.hostname ? (d.hostname + ' ') : '') + '(' + d.ip + ')';
-        if (state !== 'up')
-            alert(name + ' is not up.');
-        else if (confirm('Suspend ' + name + '?'))
-            get('/ajax/suspend?type=suspend&deviceId=' + deviceId);
-    }
-    updateDeviceList();
-});
+$('button#refresh').click(refresh);
+$('button#resume').click(forEachBoxChecked(resume));
+$('button#suspend').click(forEachBoxChecked(suspend));
 
 // Open the page in a new window when an a.new-window is clicked
 $(document).delegate('a.new-window', 'click', function () {

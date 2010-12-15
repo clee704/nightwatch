@@ -1,12 +1,14 @@
 (function (window, document, undefined) {
 
 
+/* @constructor */
 function EnvironmentSimulator(devices) {
 
     this.start = start;
 
     var time;
 
+    /* @method */
     function start() {
         time = Date.now();
         setInterval(simulate, 1000);
@@ -49,6 +51,7 @@ function EnvironmentSimulator(devices) {
 }
 
 
+/* @constructor */
 function AjaxHandler(devices) {
 
     this.handle = handle;
@@ -60,6 +63,7 @@ function AjaxHandler(devices) {
         '/ajax/devicelist': getDeviceList
     };
 
+    /* @method */
     function handle(url, callback) {
         var i = url.indexOf('?');
         var path = i < 0 ? url : url.substring(0, i);
@@ -106,6 +110,7 @@ var mockFactory = new (function MockFactory() {
         used: {mac: {}, ip: {}}
     };
 
+    /* @method */
     function make(n) {
         var devices = [];
         for (var i = 0; i < n; ++i)
@@ -168,7 +173,7 @@ var mockFactory = new (function MockFactory() {
         return a.join('');
     }
 
-    // Mock object constructor
+    /* @constructor */
     function Device(hostname, mac, ip, state, monitoredSince, totalUptime,
             sleepTime, totalDowntime) {
         this.hostname = hostname;
@@ -188,6 +193,7 @@ var mockFactory = new (function MockFactory() {
         this._lastStateChange = Date.now();
     }
 
+    /* @constructor */
     function IpAddress(str) {
         this.str = str;
         var b = str.split('.');
@@ -204,11 +210,9 @@ var mockFactory = new (function MockFactory() {
 
 
 (function extendLanguage() {
-
     Date.now = Date.now || function () {
         new Date().getTime();
     };
-
     Array.prototype.indexBy = Array.prototype.indexBy || function (index) {
         var o = {};
         for (var i = 0, n = this.length; i < n; ++i) {
@@ -221,17 +225,14 @@ var mockFactory = new (function MockFactory() {
 
 
 (function init() {
-
     var devices = mockFactory.make(10);
     var simulator = new EnvironmentSimulator(devices);
     var handler = new AjaxHandler(devices);
-
     window.demo = {
         get: function (url, callback) {
             handler.handle(url, callback);
         }
     };
-
     simulator.start();
 })();
 
