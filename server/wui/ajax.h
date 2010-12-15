@@ -15,6 +15,13 @@
  */
 void ajax_resume(struct mg_connection *, const struct mg_request_info *);
 
+/**
+ * Suspend (to memory) the specified device. The request URI is
+ * /ajax/suspend?deviceId=<>.
+ *
+ * The detail is similar to ajax_resume(). The messages for failure are
+ * "no such device" and "already suspended".
+ */
 void ajax_suspend(struct mg_connection *, const struct mg_request_info *);
 
 /**
