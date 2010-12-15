@@ -196,28 +196,6 @@ $('button#suspend').click(function () {
     updateDeviceList();
 });
 
-// TODO DRY
-$('button#hibernate').click(function () {
-    var checked = deviceListTbody.find('input:checked');
-    var n = checked.length;
-    if (n === 0)
-        return;
-    updateDeviceList();
-    for (var i = 0; i < n; ++i) {
-        var c = checked[i];
-        var d = $.data(c, 'deviceInfo');
-        var deviceId = d.mac;
-        var state = d.state;
-        // Define human-friendly name for dialog boxes
-        var name = (d.hostname ? (d.hostname + ' ') : '') + '(' + d.ip + ')';
-        if (state !== 'up')
-            alert(name + ' is not up.');
-        else if (confirm('Hibernate ' + name + '?'))
-            get('/ajax/suspend?type=hibernate&deviceId=' + deviceId);
-    }
-    updateDeviceList();
-});
-
 // Open the page in a new window when an a.new-window is clicked
 $(document).delegate('a.new-window', 'click', function () {
     window.open(this.href);

@@ -42,7 +42,8 @@ void ajax_suspend(struct mg_connection *, const struct mg_request_info *);
  *
  * A total uptime includes a sleep time. Times are represented in milliseconds.
  * Currently there are 6 states for a device: "up", "resuming", "suspended",
- * "hibernated", and "down". "down" means the device is not responding.
+ * and "down". "down" means the device is not responding, not it is actually
+ * down.
  *
  * Note that a device may have many network interfaces but only the interface
  * that communicates with the sleep proxy server is relevant.

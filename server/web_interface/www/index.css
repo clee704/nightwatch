@@ -65,10 +65,10 @@ body {
 }
 
 .state {
-  width: 5.5em;  /* should be long enough to accommodate "hibernated" */
+  width: 5.5em;  /* should be long enough to accommodate "suspended" */
 }
 
-.suspended, .hibernated {
+.suspended {
   background: #bff2bf;
 }
 

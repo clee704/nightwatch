@@ -20,19 +20,16 @@ function EnvironmentSimulator(devices) {
             switch (d.state) {
             case 'up':
                 d.totalUptime += interval;
-                var a = Math.random() < .0025;
-                var b = Math.random() < .5;
-                var c = Math.random() < .0001;
-                if (a)
-                    d.changeState(b ? 'suspended' : 'hibernated');
-                if (c)
+                if (Math.random() < .0025)
+                    d.changeState('suspended');
+                if (Math.random() < .0001)
                     d.changeState('down');
                 break;
-            case 'down':
-                d.totalDowntime += interval;
-                var a = Math.random() < .0005;
-                if (a)
-                    d.changeState('up');
+            case 'suspended':  // suspended
+                d.totalUptime += interval;
+                d.sleepTime += interval;
+                if (Math.random() < .0025)
+                    d.changeState('resuming');
                 break;
             case 'resuming':
                 d.totalUptime += interval;
@@ -40,12 +37,10 @@ function EnvironmentSimulator(devices) {
                 if (currTime - d._lastStateChange > d._resumeTime)
                     d.changeState('up');
                 break;
-            default:  // suspended or hibernated
-                d.totalUptime += interval;
-                d.sleepTime += interval;
-                var a = Math.random() < .0025;
-                if (a)
-                    d.changeState('resuming');
+            case 'down':
+                d.totalDowntime += interval;
+                if (Math.random() < .0005)
+                    d.changeState('up');
                 break;
             }
         }
@@ -103,7 +98,7 @@ var mockFactory = new (function MockFactory() {
     var pool = {
         states: [
             'up', 'up', 'up', 'up', 'up', 'suspended', 'suspended',
-            'hibernated', 'resuming', 'down'
+            'suspended', 'resuming', 'down'
         ],
         hostnames: [
             'martini', 'mimosa', 'bacardi', 'kahlua', '', '', '', '', '', ''
@@ -189,10 +184,8 @@ var mockFactory = new (function MockFactory() {
     }
 
     Device.prototype.changeState = function (state) {
-        this._lastStateChange = Date.now();
-        if (this.state === 'hibernated' && state === 'resuming')
-            this._lastStateChange += 10000;
         this.state = state;
+        this._lastStateChange = Date.now();
     }
 
     function IpAddress(str) {
