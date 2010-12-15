@@ -12,8 +12,8 @@
 // TODO We need to get some options from the config file
 //
 static const char *mg_options[] = {
-    "listening_ports", "8080",
     "document_root", "./var",
+    "listening_ports", "8080",
     "num_threads", "3",
     NULL
 };
