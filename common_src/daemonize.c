@@ -1,26 +1,26 @@
-// C standard library
+#define _GNU_SOURCE
+
 #include <errno.h>
 #include <signal.h>
 #include <stdlib.h>
 
-// C POSIX library
 #include <fcntl.h>
 #include <syslog.h>
 #include <sys/resource.h>
 #include <unistd.h>
 
-// GNU C library
 #include <error.h>
 
 #include "daemonize.h"
 
 // This is based on code originally by Richard Stevens APUE
-void daemonize(const char *cmd)
+void daemonize()
 {
-    int i, fd0, fd1, fd2;
     pid_t pid;
     struct rlimit rl;
     struct sigaction sa;
+    int fd0, fd1, fd2;
+    unsigned int i;
 
     // Clear file creation mask
     umask(0);
@@ -64,7 +64,7 @@ void daemonize(const char *cmd)
     fd2 = dup(0);
 
     // Initialize the log file
-    openlog(cmd, LOG_CONS, LOG_DAEMON);
+    openlog(program_invocation_name, LOG_CONS, LOG_DAEMON);
     if (fd0 != 0 || fd1 != 1 || fd2 != 2) {
         syslog(LOG_ERR, "unexpected file descriptors %d %d %d", fd0, fd1, fd2);
         exit(1);

@@ -4,6 +4,6 @@
 /**
  * Make the calling process a daemon.
  */
-void daemonize(const char *cmd);
+void daemonize();
 
 #endif /* DAEMONIZE_H */
