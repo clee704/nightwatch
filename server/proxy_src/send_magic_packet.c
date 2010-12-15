@@ -1,25 +1,25 @@
-#include <errno.h>
-#include <error.h>
+// C standard library
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// C POSIX library
 #include <net/if.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+// GNU C library
 #include <netinet/ether.h>
 #include <netpacket/packet.h>
 #include <sys/ioctl.h>
-#include <sys/socket.h>
-#include "send_magic_packet.h"
 
-//
-// TODO Need better error handling; It may be necessary to handle it rather
-//      than just terminate the program
-//
+#include "send_magic_packet.h"
 
 static int build_packet(const unsigned char *dst_addr_octet,
                         const unsigned char *src_addr_octet,
                         unsigned char *packet);
 
-void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
+int send_magic_packet(const char *dst_addr_str, const char *ifname_in)
 {
     int sock;
     struct sockaddr_ll dst_sockaddr;
@@ -30,33 +30,32 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
     if (sock < 0)
-        error(2, errno, "send_magic_packet: socket");
+        return -1;
 
     // Drop root privileges if the executable is suid root
     if (setuid(getuid()) < 0)
-        error(2, errno, "send_magic_packet: setuid");
+        return -1;
 
     // Convert the destination address
     addrp = ether_aton(dst_addr_str);
     if (addrp == NULL)
-        error(2, errno, "send_magic_packet: ether_aton");
+        return -1;
     dst_addr = *addrp;
 
     // Get the source address from the interface name
     {
         struct ifreq ifr;
-        unsigned char *hwaddr = ifr.ifr_hwaddr.sa_data;
 
         strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
         if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0)
-            error(2, errno, "send_magic_packet: ioctl (SIOCGIFHWADDR)");
+            return -1;
         memcpy(src_addr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, 6);
     }
 
     // Build the magic packet
     packet = (unsigned char *) malloc(200);
     if (packet == NULL)
-        error(2, errno, "send_magic_packet: malloc");
+        return -1;
     packet_sz = build_packet(dst_addr.ether_addr_octet,
                              src_addr.ether_addr_octet,
                              packet);
@@ -67,7 +66,7 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
 
         strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
         if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0)
-            error(2, errno, "send_magic_packet: ioctl (SIOCGIFINDEX)");
+            return -1;
 
         memset(&dst_sockaddr, 0, sizeof(dst_sockaddr));
         dst_sockaddr.sll_family = AF_PACKET;
@@ -79,9 +78,11 @@ void send_magic_packet(const char *dst_addr_str, const char *ifname_in)
     // Finally, send the packet!
     if (sendto(sock, packet, packet_sz, 0, (struct sockaddr *) &dst_sockaddr,
                sizeof(dst_sockaddr)) < 0)
-        error(2, errno, "send_magic_packet: sendto");
+        return -1;
 
     free(packet);
+
+    return 0;
 }
 
 static int build_packet(const unsigned char *dst_addr_octet,
