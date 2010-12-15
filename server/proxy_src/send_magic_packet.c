@@ -1,14 +1,11 @@
-// C standard library
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// C POSIX library
 #include <net/if.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-// GNU C library
 #include <netinet/ether.h>
 #include <netpacket/packet.h>
 #include <sys/ioctl.h>

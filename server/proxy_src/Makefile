@@ -1,5 +1,5 @@
 target = nitch_server
-sources = main.c send_magic_packet.c
+sources = main.c daemonize.c send_magic_packet.c
 objects = $(sources:.c=.o)
 
 VPATH = .
@@ -12,7 +12,9 @@ all: $(target)
 $(target): $(objects)
 	$(CC) $(LDFLAGS) -o $@ $^ 
 
-main.o: main.c send_magic_packet.h
+main.o: main.c daemonize.h send_magic_packet.h
+
+daemonize.o: daemonize.c daemonize.h
 
 send_magic_packet.o: send_magic_packet.c send_magic_packet.h
 
