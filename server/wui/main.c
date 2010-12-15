@@ -13,7 +13,7 @@
 //
 static const char *mg_options[] = {
     "listening_ports", "8080",
-    "document_root", "./www",
+    "document_root", "./var",
     "num_threads", "3",
     NULL
 };
