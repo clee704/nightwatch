@@ -13,3 +13,5 @@
 
 int make_connect(char *, int);
 int go_to_sleep();
+void read_config();
+void send_host_name(int);

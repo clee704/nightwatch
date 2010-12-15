@@ -1,8 +1,10 @@
 #include "main.h"
 #define log_location "/var/log"
 #define daemon_name "nitch_agent"
-#define server_ip 147.46.242.78
-#define server_port 5678
+char server_ip[20];
+char server_hwip[30];
+int server_port = 5678;
+
 enum REQ {SUSP, NTFY, STAT};
 int
 main (int argc, char **argv)
@@ -25,6 +27,8 @@ main (int argc, char **argv)
 	if ((chdir("/")) < 0) {
 		exit(EXIT_FAILURE);
 	}
+	read_config();
+
 	close(STDIN_FILENO);
 	close(STDERR_FILENO);
 	close(STDOUT_FILENO);
@@ -33,6 +37,34 @@ main (int argc, char **argv)
 	}
 	exit(EXIT_SUCCESS);
 
+}
+void
+send_host_name(int serverfd)
+{
+	char hostname[100];
+	gethostname(hostname, 100);
+	write(serverfd, hostname, 100);
+}
+void
+read_config()
+{
+	char buf[100];
+	FILE *conf = fopen("/etc/nitch_agent.conf", "r");
+	if ( conf < 0) 
+	{
+	}
+
+	//read ip addr
+	fgets(buf, 100, conf);
+	strncpy(server_ip, buf, strlen(buf));
+	
+	//read port
+	fgets(buf, 100, conf);
+	server_port = atoi(buf);
+
+	//read hwaddr
+	fgets(buf, 100, conf);
+	strncpy(server_hwip, buf, strlen(buf));
 }
 
 int 
