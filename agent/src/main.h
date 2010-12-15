@@ -18,3 +18,4 @@ int go_to_sleep();
 void read_config();
 void send_host_name(int);
 void *sleep_listener();
+void *request_handler();

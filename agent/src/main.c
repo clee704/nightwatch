@@ -39,7 +39,7 @@ main (int argc, char **argv)
 		//thread error
 		printf("thread make error\n");
 	}
-	if ( pthread_create(&p_thread[1], NULL, testaa, NULL)){
+	if ( pthread_create(&p_thread[1], NULL, request_handler, NULL)){
 		printf("thread make error2\n");
 	}
 	pthread_join(p_thread[0], NULL);
@@ -52,10 +52,9 @@ main (int argc, char **argv)
 
 }
 void *
-requset_handler()
+request_handler()
 {
 	while(1){
-		printf("aaaasdhhhhh\n");
 		sleep(1);
 	}
 }
@@ -118,7 +117,7 @@ make_connect(char *server, int port)
 int
 go_to_sleep ()
 {
-	system("pm-hibernate");
+	system("pm-suspend");
 	return 0;
 }
 void *
@@ -161,10 +160,12 @@ sleep_listener()
 
 		if (NULL== msg)
 		{
-			sleep(0.5);
+			sleep(0.1);
 			continue;
 		}
 		if(dbus_message_is_signal(msg, "agent.signal.Type","Test")){
+			//do something here
+			system("echo -n 'test' > /home/ninkin/test");
 			printf("gotit\n");
 		}
 	}

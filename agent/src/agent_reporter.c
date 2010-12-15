@@ -48,7 +48,7 @@ void sendsignal(char* sigvalue)
 		exit(1);
 	}
 	dbus_connection_flush(conn);
-	printf("sig sent\n");
+	printf("sleep signal is sent\n");
 	dbus_message_unref(msg);
 }
 int main()
