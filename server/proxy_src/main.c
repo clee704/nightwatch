@@ -1,15 +1,18 @@
+#define _GNU_SOURCE
+
+#include <errno.h>
 #include <stdio.h>
 
 #include <syslog.h>
 
-#include "daemonize.h"
+#include "daemon.h"
 #include "send_magic_packet.h"
 
 int main(int argc, char **argv)
 {
     (void) argc;
 
-    daemonize();
+    daemonize(program_invocation_name);
     //
     // TODO
     //

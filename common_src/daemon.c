@@ -2,19 +2,22 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <fcntl.h>
 #include <syslog.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <error.h>
 
-#include "daemonize.h"
+#include "daemon.h"
 
 // This is based on code originally by Richard Stevens APUE
-void daemonize()
+void daemonize(const char *cmd)
 {
     pid_t pid;
     struct rlimit rl;
@@ -30,7 +33,8 @@ void daemonize()
         error(2, errno, "can't get file limit");
 
     // Become a session leader to lose controlling TTY
-    if ((pid = fork()) < 0)
+    pid = fork();
+    if (pid < 0)
         error(2, errno, "can't fork");
     else if (pid != 0)  // parent
         exit(0);
@@ -42,7 +46,8 @@ void daemonize()
     sa.sa_flags = 0;
     if (sigaction(SIGHUP, &sa, NULL) < 0)
         error(2, errno, "can't ignore SIGHUP");
-    if ((pid = fork()) < 0)
+    pid = fork();
+    if (pid < 0)
         error(2, errno, "can't fork");
     else if (pid != 0)  // parent
         exit(0);
@@ -64,9 +69,33 @@ void daemonize()
     fd2 = dup(0);
 
     // Initialize the log file
-    openlog(program_invocation_name, LOG_CONS, LOG_DAEMON);
+    openlog(cmd, LOG_CONS, LOG_DAEMON);
     if (fd0 != 0 || fd1 != 1 || fd2 != 2) {
         syslog(LOG_ERR, "unexpected file descriptors %d %d %d", fd0, fd1, fd2);
         exit(1);
     }
+}
+
+int write_pid(const char *dir, const char *name)
+{
+    static char buffer[512];
+    FILE *fp;
+    int size;
+    pid_t pid;
+
+    size = snprintf(buffer, sizeof(buffer), "%s/%s.pid", dir, name);
+    if (size < 0 || (int) sizeof(buffer) < size)
+        return -1;
+    fp = fopen(buffer, "w");
+    if (fp == NULL)
+        return -1;
+    pid = getpid();
+    size = snprintf(buffer, sizeof(buffer), "%d", pid);
+    if (size < 0 || (int) sizeof(buffer) < size)
+        return -1;
+    if (fwrite(buffer, 1, size, fp) != (size_t) size)
+        return -1;
+    if (fclose(fp) == EOF)
+        return -1;
+    return 0;
 }
