@@ -11,7 +11,12 @@ main (int argc, char **argv)
 	int thr_id;
 	int server_socket;
 	pid_t pid, sid;
-	
+
+	if(geteuid() != 0) {
+		fprintf(stderr, "%s: must be run as root or setuid root\n", "nitch_agent");
+		exit(EXIT_SUCCESS);
+	}
+	//initialize to make daemon process	
 	pid = fork();
 	if (pid < 0) {
 		syslog(LOG_ERR, "daemon initialize error");
@@ -30,8 +35,10 @@ main (int argc, char **argv)
 		syslog(LOG_ERR, "daemon initialize error");
 		exit(EXIT_FAILURE);
 	}
+
 	read_config();
 
+	//make thread to listen sleeping signal and handle proxy server command
 	if( pthread_create(&p_thread[0], NULL, sleep_listener, (void*)&server_socket)){
 		syslog(LOG_ERR, "daemon can't make thread");
 	}
@@ -50,6 +57,7 @@ main (int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
+	// send host information
 	send_host_info(server_socket);
 
 	pthread_join(p_thread[0], NULL);
@@ -75,9 +83,7 @@ request_handler(void *socket)
 			continue;
 		}
 		if(strncmp(buf, "SUSP\n", 5) == 0){
-			strncpy(buf,"200 OK\n", 7);
-			write(server_socket, buf, strlen(buf));
-			syslog(LOG_INFO, "agent sent OK message");
+			send_ok(server_socket);
 			go_to_sleep();
 		}
 		else if(strncmp(buf, "STAT\n", 5) == 0){
@@ -86,11 +92,17 @@ request_handler(void *socket)
 			syslog(LOG_INFO, "agent sent cpu usage");
 		}
 		else if(strncmp(buf, "PING\n", 5) == 0){
-			strncpy(buf,"200 OK\n", 7);
-			syslog(LOG_INFO, "agent sent OK message");
-			write(server_socket, buf, strlen(buf));
+			send_ok(server_socket);
 		}
 	}
+}
+void
+send_ok(int server_socket)
+{
+	char buf[10];
+	strncpy(buf,"200 OK\n", 7);
+	write(server_socket, buf, strlen(buf));
+	syslog(LOG_INFO, "agent sent OK message");
 }
 void
 send_host_info(int serverfd)
@@ -115,16 +127,14 @@ read_config()
 	char buf[100];
 	FILE *conf = fopen("/etc/nitch_agent.conf", "r");
 	if ( conf < 0) {
-		syslog(LOG_ERR, "can't open configuration file. use default option");
-		strncopy(server_ip, "147.46.242.78", strlen("147.46.24.78"));
-		server_port = 4444;
+		syslog(LOG_ERR, "can't open configuration file.");
+		exit(EXIT_FAILURE);
 	}
 	else{
 		fgets(buf, 100, conf);
 		strncpy(server_ip, buf, strlen(buf)-1);
 		fgets(buf, 100, conf);
 		server_port = atoi(buf);
-		fgets(buf, 100, conf);
 		syslog(LOG_INFO, "use %s on port %d", server_ip, server_port);
 	}
 }
@@ -154,6 +164,7 @@ make_connect(char *server, int port)
 int
 go_to_sleep ()
 {
+	//use pm-suspend command to sleep
 	syslog(LOG_NOTICE, "this agent machine is going to sleep");
 	system("pm-suspend");
 	return 0;
@@ -164,10 +175,10 @@ sleep_listener(void *socketfd)
 	int server_socket = *((int *)socketfd);
 	char buf[10];
 	
-
 	struct sockaddr_un my_addr, reporter_addr;
 	int my_sockfd, reporter_sockfd;
 
+	//use unix domain socket
 	if((my_sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
 		syslog(LOG_ERR, "socket open error");
 	}
@@ -181,8 +192,10 @@ sleep_listener(void *socketfd)
 	}
 	syslog(LOG_DEBUG, "listening on /tmp/nitchsocket");
 	listen(my_sockfd, 5);
-	int clilen = sizeof(reporter_addr);
 
+	//if anyone connect to socket file,
+	//	we accept and assume this is sleeping condition
+	int clilen = sizeof(reporter_addr);
 	reporter_sockfd = accept(my_sockfd, (struct sockaddr *)&reporter_addr, &clilen);
 
 	syslog(LOG_NOTICE, "got sleep signal. send notification message to server");
@@ -190,5 +203,4 @@ sleep_listener(void *socketfd)
 	
 	close(reporter_sockfd);
 	close(my_sockfd);
-
 }

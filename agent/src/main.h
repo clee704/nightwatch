@@ -18,5 +18,6 @@ int make_connect(char *, int);
 int go_to_sleep();
 void read_config();
 void send_host_info(int);
+void send_ok(int);
 void *sleep_listener(void*);
 void *request_handler(void*);
