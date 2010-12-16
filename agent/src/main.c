@@ -195,7 +195,6 @@ sleep_listener(void *socket)
 		msg = dbus_connection_pop_message(connection);
 
 		if (NULL== msg) {
-			sleep(0.1);
 			continue;
 		}
 		if(dbus_message_is_signal(msg, "agent.signal.Type","Test")) {

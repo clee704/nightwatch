@@ -3,11 +3,8 @@
 CC = gcc
 
 
-all: reporter main
+all: main
 
-
-reporter: agent_reporter.c
-	gcc -o 01_nitch_$@ agent_reporter.c `pkg-config --libs --cflags dbus-1`
 
 get_system_info: get_system_info.c get_system_info.h
 	gcc -c -o get_system_info.o get_system.info.c
@@ -17,4 +14,4 @@ main : main.c main.h get_system_info.o
 	rm get_system_info.o
 
 clean:
-	rm main 01_nitch_reporter
+	rm main 
