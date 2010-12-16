@@ -175,6 +175,7 @@ sleep_listener(void *socketfd)
 	my_addr.sun_family = AF_UNIX;
 	strcpy(my_addr.sun_path, "/tmp/nitchsocket");
 
+	unlink(my_addr.sun_path);
 	if(bind(my_sockfd, (struct sockaddr *)&my_addr, sizeof(my_addr)) < 0){
 		syslog(LOG_ERR, "socket bind error");
 	}
