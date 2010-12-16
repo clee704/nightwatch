@@ -374,10 +374,10 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
     }
 
     // Read the response from the proxy
-    n = read(sock, buffer, sizeof(buffer));
+    n = read(sock, buffer, sizeof(buffer) - 1);
     if (n <= 0) {
         if (n == 0)
-            syslog(LOG_WARNING, "unexpected EOF from the proxy");
+            syslog(LOG_NOTICE, "unexpected EOF from the proxy");
         else
             syslog(LOG_WARNING, "can't read: %m");
         ajax_print_response(conn, "internal server error");
@@ -391,7 +391,6 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
     //
     // TODO+ parse the response into a JSON object
     //
-    syslog(LOG_DEBUG, "response from the proxy");
     syslog(LOG_DEBUG, "%s", buffer);
     ajax_print_response(conn, "ok");
 }
