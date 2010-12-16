@@ -159,47 +159,35 @@ go_to_sleep ()
 	return 0;
 }
 void *
-sleep_listener(void *socket)
+sleep_listener(void *socketfd)
 {
-	int server_socket = *((int *)socket);
-	DBusConnection *connection;
-	DBusMessage *msg;
-	DBusError error;
-	int ret;
+	int server_socket = *((int *)socketfd);
+	char buf[10];
+	
 
-	dbus_error_init(&error);
+	struct sockaddr_un my_addr, reporter_addr;
+	int my_sockfd, reporter_sockfd;
 
-	syslog(LOG_DEBUG, "start sleep listener");
-	connection = dbus_bus_get (DBUS_BUS_SYSTEM, &error);
-
-	if( connection == NULL ) {
-		syslog(LOG_ERR, "Failed to open connection to bus: %s\n",error.message);
-		dbus_error_free(&error);
-		return ;
+	if((my_sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
+		syslog(LOG_ERR, "socket open error");
 	}
-	ret = dbus_bus_request_name(connection, "nitch.agent.signal.sink", DBUS_NAME_FLAG_REPLACE_EXISTING , &error);
-	if( dbus_error_is_set(&error)){
-		syslog(LOG_ERR, "Name Error %s\n", error.message);
-		dbus_error_free(&error);
-		return ;
-	}
-	dbus_bus_add_match(connection, "type='signal',interface='agent.signal.Type'", &error);
-	if(dbus_error_is_set(&error)){
-		syslog(LOG_ERR, "Match Error %s\n", error.message);
-		return ;
-	}
+	bzero(&my_addr, sizeof(my_addr));
+	my_addr.sun_family = AF_UNIX;
+	strcpy(my_addr.sun_path, "/tmp/nitchsocket");
 
-	while(1)
-	{
-		dbus_connection_read_write(connection, 0);
-		msg = dbus_connection_pop_message(connection);
-
-		if (NULL== msg) {
-			continue;
-		}
-		if(dbus_message_is_signal(msg, "agent.signal.Type","Test")) {
-			syslog(LOG_NOTICE, "got sleep signal. send notify message to server");
-			write(server_socket, "NTFY\n", 5);
-		}
+	if(bind(my_sockfd, (struct sockaddr *)&my_addr, sizeof(my_addr)) < 0){
+		syslog(LOG_ERR, "socket bind error");
 	}
+	syslog(LOG_DEBUG, "listening on /tmp/nitchsocket");
+	listen(my_sockfd, 5);
+	int clilen = sizeof(reporter_addr);
+
+	reporter_sockfd = accept(my_sockfd, (struct sockaddr *)&reporter_addr, &clilen);
+
+	syslog(LOG_NOTICE, "got sleep signal. send notification message to server");
+	write(server_socket, "NTFY\n", 5);
+	
+	close(reporter_sockfd);
+	close(my_sockfd);
+
 }

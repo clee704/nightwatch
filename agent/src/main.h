@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <dbus/dbus.h>
 #include <sys/stat.h>
+#include <sys/un.h>
 #include <syslog.h>
 #include <stdlib.h>
 #include <stdio.h>
