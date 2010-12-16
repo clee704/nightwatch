@@ -1,8 +1,10 @@
 #include "main.h"
 #define daemon_name "nitch_agent"
+#define connection_retry_num 10
 char server_ip[20];
 char server_hwip[30];
 int server_port = 5678;
+int server_socket;
 
 enum REQ {SUSP, NTFY, STAT};
 int
@@ -31,7 +33,6 @@ main (int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	read_config();
-	
 
 	if( pthread_create(&p_thread[0], NULL, sleep_listener, NULL)){
 		syslog(LOG_ERR, "daemon can't make thread");
@@ -39,6 +40,19 @@ main (int argc, char **argv)
 	if ( pthread_create(&p_thread[1], NULL, request_handler, NULL)){
 		syslog(LOG_ERR, "daemon can't make thread");
 	}
+
+	int i;
+	for(i = 0 ; i < connection_retry_num &&
+			((server_socket = make_connect(server_ip, server_port)) < 0); i++) {
+		//retry connect in 1 second
+		sleep(1);		
+	}
+	if( connection_retry_num == i ) {
+		syslog(LOG_ERR, "connection fail");
+		exit(EXIT_FAILURE);
+	}
+
+
 	pthread_join(p_thread[0], NULL);
 	pthread_join(p_thread[1], NULL);
 
@@ -51,8 +65,18 @@ main (int argc, char **argv)
 void *
 request_handler()
 {
+	char buf[100];
 	while(1){
-		sleep(1);
+		read(server_socket, buf, 100);
+		if(buf == NULL)
+			sleep(1);
+		else if(strncmp(buf, "SUSP", 4) == 0){
+			go_to_sleep();
+		}
+		else if(strncmp(buf, "STAT", 4) == 0){
+			sprintf(buf, "%f", get_cpu_usage());
+			write(server_socket, buf, strlen(buf));
+		}
 	}
 }
 void
@@ -92,9 +116,9 @@ read_config()
 int
 make_connect(char *server, int port)
 {
-	int client_socket;
-	client_socket = socket(PF_INET, SOCK_STREAM, 0);
-	if( -1 == client_socket){
+	int server_socket;
+	server_socket = socket(PF_INET, SOCK_STREAM, 0);
+	if( -1 == server_socket){
 		syslog(LOG_ERR, "socket open error. retry in 1 second");
 		return -1;
 	}
@@ -103,11 +127,11 @@ make_connect(char *server, int port)
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(port);
 	server_addr.sin_addr.s_addr = inet_addr(server);
-	if( -1 == connect( client_socket, (struct sockaddr*)&server_addr, sizeof( server_addr))){
+	if( -1 == connect( server_socket, (struct sockaddr*)&server_addr, sizeof( server_addr))){
 		syslog(LOG_ERR, "can't connect to server. retry in 1 seconnd");
 		return -1;
 	}
-	return client_socket;
+	return server_socket;
 }
 
 
