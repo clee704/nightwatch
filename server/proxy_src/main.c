@@ -52,7 +52,6 @@ pthread_mutex_t agn_mutex = PTHREAD_MUTEX_INITIALIZER;
 struct agent *agents[AGN_MAX_AGENTS];
 
 // TODO+ implemented it using hash table (find library or make it yourself)
-// hash key: MAC address
 void *agents_by_hash[AGN_MAX_AGENTS];
 
 int agn_alloc[AGN_MAX_AGENTS];  // 0 for free, 1 for allocated
@@ -251,17 +250,12 @@ agn_accept(void *sock)
                             "closing the new connection", AGN_MAX_AGENTS);
             goto error;
         }
-        a = agents[index] = (struct agent *) malloc(sizeof(struct agent));
+        a = agents[index] = (struct agent *) calloc(1, sizeof(struct agent));
         if (a == NULL)
             goto malloc_error;
-        if (inet_ntop(AF_INET, &addr.sin_addr, a->ip, INET_ADDRSTRLEN) == NULL) {
-            syslog(LOG_ERR, "(agn) inet_ntop failed: %m");
-            goto error;
-        }
         a->fd = (int) conn;
         a->state = UP;
-        strcpy(a->hostname, "");
-        strcpy(a->mac, "");
+        a->ip = addr.sin_addr;
         a->monitored_since = time(NULL);
         a->total_uptime = 0;
         a->total_downtime = 0;
@@ -291,7 +285,7 @@ static void *
 agn_read(void *index)
 {
     struct agent *a = agents[(int) index];
-    char buffer[512];
+    char buffer[1024];  // large enough to store a request from the agent
     int n;
 
     while ((n = read(a->fd, buffer, sizeof(buffer))) > 0) {
@@ -384,7 +378,9 @@ wui_listen(const char *sock_file)
 static void
 wui_accept_and_read(int sock)
 {
+    // large enough to store the request from the web UI
     static char buffer[64];
+
     struct sockaddr_un addr;
     socklen_t addr_len;
     int conn, n;
