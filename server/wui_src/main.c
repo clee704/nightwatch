@@ -17,6 +17,7 @@
 
 #include "mongoose.h"
 #include "daemon.h"
+#include "protocol.h"
 
 // Whenever you add more command-line options, update MAX_OPTIONS accordingly
 #define MAX_OPTIONS 5
@@ -338,8 +339,8 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
                    const struct mg_request_info *request_info,
                    const char *method)
 {
-    char buffer[64] = {0};
-    char device_id[32] = {0};
+    char buffer[64] = {0};     // large enough to store a request to the proxy
+    char device_id[32] = {0};  // large enough to store a device ID
     int sock, n;
 
     // Get the argument

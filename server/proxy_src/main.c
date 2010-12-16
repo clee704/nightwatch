@@ -20,8 +20,9 @@
 #include <getopt.h>
 
 #include "agent.h"
-#include "daemon.h"
 #include "send_magic_packet.h"
+#include "daemon.h"
+#include "protocol.h"
 
 // Whenever you add more command-line options, update MAX_OPTIONS accordingly
 #define MAX_OPTIONS 4
