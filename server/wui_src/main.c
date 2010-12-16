@@ -34,11 +34,6 @@ static const char *ajax_reply_start =
     "Content-Type: application/json\r\n"
     "\r\n";
 
-static const char *ajax_error_start =
-    "HTTP/1.1 409 Conflict\r\n"
-    "Content-Type: text/plain\r\n"
-    "\r\n";
-
 static void
 get_commandline_options(int argc, char **argv, const char **mg_options,
                         const char **sock_file, const char **pid_file);
@@ -117,6 +112,13 @@ static void
 ajax_device_list(const char *sock_file, struct mg_connection *,
                  const struct mg_request_info *);
 
+static void
+ajax_simple_method(const char *sock_file, struct mg_connection *,
+                   const struct mg_request_info *, const char *method);
+
+static void
+ajax_print_response(struct mg_connection *, const char *message);
+
 static int
 connect_to(const char *sock_file);
 
@@ -124,8 +126,8 @@ connect_to(const char *sock_file);
  * Get the value of the specified variable in the query string.
  */
 static void
-get_qsvar(const struct mg_request_info *, const char *name, char *buffer,
-          size_t max_len);
+mg_get_qsvar(const struct mg_request_info *, const char *name, char *buffer,
+             size_t max_len);
 
 int
 main(int argc, char **argv) {
@@ -144,13 +146,11 @@ main(int argc, char **argv) {
     daemonize(program_invocation_short_name);
 
     if (write_pid(pid_file) < 0)
-        syslog(LOG_WARNING, "can't write PID file to %s: %s", pid_file,
-            strerror(errno));
+        syslog(LOG_WARNING, "can't write PID file to %s: %m", pid_file);
     if (setuid(getuid()) < 0)
-        syslog(LOG_WARNING, "can't drop the root privileges: %s",
-            strerror(errno));
+        syslog(LOG_WARNING, "can't drop the root privileges: %m");
     if (register_signal_handler(SIGTERM, sigterm))
-        syslog(LOG_WARNING, "can't catch SIGTERM: %s", strerror(errno));
+        syslog(LOG_WARNING, "can't catch SIGTERM: %m");
 
     // Start mongoose
     ctx = mg_start(&event_handler, mg_options);
@@ -249,7 +249,7 @@ sigterm(int signum)
     (void) signum;  // unused
     syslog(LOG_INFO, "got SIGTERM; exiting");
     if (unlink(pid_file) < 0)
-        syslog(LOG_ERR, "can't unlink %s: %s", pid_file, strerror(errno));
+        syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
     exit(2);
 }
 
@@ -279,71 +279,14 @@ static void
 ajax_resume(const char *sock_file, struct mg_connection *conn,
             const struct mg_request_info *request_info)
 {
-    char device_id[24];  // In fact, 17 is just enough for MAC address
-    int sock;
-
-    get_qsvar(request_info, "deviceId", device_id, sizeof(device_id));
-    if (strlen(device_id) == 0) {
-        mg_printf(conn, "%s", ajax_error_start);
-        mg_printf(conn, "%s", "deviceId must be specified");
-        return;
-    }
-
-    sock = connect_to(sock_file);
-    if (sock < 0) {
-        syslog(LOG_WARNING, "can't connect to %s: %s", sock_file,
-            strerror(errno));
-        return;
-    }
-    //
-    // TODO remove and implement ajax calls
-    //
-    // echo test
-    //{
-    //    static char buffer[256];
-    //    int nbytes;
-
-    //    if (write(sock, "hello", 5) < 0)
-    //        syslog(LOG_WARNING, "can't write: %s", strerror(errno));
-    //    nbytes = read(sock, buffer, 256);
-    //    buffer[nbytes] = 0;
-    //    syslog(LOG_INFO, "message from the proxy: %s", buffer);
-    //}
-    if (close(sock) < 0)
-        syslog(LOG_WARNING, "can't close the socket: %s", strerror(errno));
-
-    mg_printf(conn, "%s", ajax_reply_start);
-    mg_printf(conn, "%s", "{\"success\": true, \"message\": \"ok\"}");
+    ajax_simple_method(sock_file, conn, request_info, "RSUM");
 }
 
 static void
 ajax_suspend(const char *sock_file, struct mg_connection *conn,
              const struct mg_request_info *request_info)
 {
-    char device_id[24];  // In fact, 17 is just enough for MAC address
-    int sock;
-
-    get_qsvar(request_info, "deviceId", device_id, sizeof(device_id));
-    if (strlen(device_id) == 0) {
-        mg_printf(conn, "%s", ajax_error_start);
-        mg_printf(conn, "%s", "deviceId must be specified");
-        return;
-    }
-
-    sock = connect_to(sock_file);
-    if (sock < 0) {
-        syslog(LOG_WARNING, "can't connect to %s: %s", sock_file,
-            strerror(errno));
-        return;
-    }
-    //
-    // TODO implement ajax calls
-    //
-    if (close(sock) < 0)
-        syslog(LOG_WARNING, "can't close the socket: %s", strerror(errno));
-
-    mg_printf(conn, "%s", ajax_reply_start);
-    mg_printf(conn, "%s", "{\"success\": true, \"message\": \"ok\"}");
+    ajax_simple_method(sock_file, conn, request_info, "SUSP");
 }
 
 static void
@@ -355,23 +298,94 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
 
     sock = connect_to(sock_file);
     if (sock < 0) {
-        syslog(LOG_WARNING, "can't connect to %s: %s", sock_file,
-            strerror(errno));
+        syslog(LOG_WARNING, "can't connect to %s: %m", sock_file);
         return;
     }
     //
     // TODO implement ajax calls
     //
     if (close(sock) < 0)
-        syslog(LOG_WARNING, "can't close the socket: %s", strerror(errno));
+        syslog(LOG_WARNING, "can't close the socket: %m");
 
     mg_printf(conn, "%s", ajax_reply_start);
     mg_printf(conn, "%s", "[]");
 }
 
 static void
-get_qsvar(const struct mg_request_info *request_info,
-          const char *name, char *buffer, size_t max_len)
+ajax_simple_method(const char *sock_file, struct mg_connection *conn,
+                   const struct mg_request_info *request_info,
+                   const char *method)
+{
+    char buffer[100] = {0};
+    char device_id[24] = {0};
+    int sock, n;
+
+    // Get the argument
+    mg_get_qsvar(request_info, "deviceId", device_id, sizeof(device_id));
+    if (strlen(device_id) == 0) {
+        ajax_print_response(conn, "deviceId must be specified");
+        return;
+    }
+
+    // Connect to the proxy
+    sock = connect_to(sock_file);
+    if (sock < 0) {
+        syslog(LOG_WARNING, "can't connect to %s: %m", sock_file);
+        ajax_print_response(conn, "internal server error");
+        return;
+    }
+
+    // Make a request
+    n = snprintf(buffer, sizeof(buffer), "%s %s\n", method, device_id);
+    if (n < 0 || (int) sizeof(buffer) < n) {
+        ajax_print_response(conn, "internal server error");
+        return;
+    }
+
+    // Send the request to the proxy
+    if (write(sock, buffer, n) != n) {
+        syslog(LOG_WARNING, "can't write: %m");
+        ajax_print_response(conn, "internal server error");
+        return;
+    }
+
+    // Read the response from the proxy
+    n = read(sock, buffer, sizeof(buffer));
+    if (n <= 0) {
+        if (n == 0)
+            syslog(LOG_WARNING, "unexpected EOF from the proxy");
+        else
+            syslog(LOG_WARNING, "can't read: %m");
+        ajax_print_response(conn, "internal server error");
+    }
+    buffer[n] = 0;
+
+    //
+    // TODO parse the response and make a JSON object
+    //
+    syslog(LOG_DEBUG, "response from the proxy");
+    syslog(LOG_DEBUG, "%s", buffer);
+    ajax_print_response(conn, "ok");
+
+    // Close the connection to the proxy
+    if (close(sock) < 0)
+        syslog(LOG_WARNING, "can't close the socket: %m");
+}
+
+static void
+ajax_print_response(struct mg_connection *conn, const char *message)
+{
+    int success;
+
+    success = strncmp(message, "ok", 2) == 0;
+    mg_printf(conn, "%s", ajax_reply_start);
+    mg_printf(conn, "{\"success\": %s, \"message\": \"%s\"}",
+        success ? "true" : "false", message);
+}
+
+static void
+mg_get_qsvar(const struct mg_request_info *request_info,
+            const char *name, char *buffer, size_t max_len)
 {
     const char *qs = request_info->query_string;
     mg_get_var(qs, strlen(qs == NULL ? "" : qs), name, buffer, max_len);
@@ -380,7 +394,7 @@ get_qsvar(const struct mg_request_info *request_info,
 static int
 connect_to(const char *sock_file)
 {
-    int sock, size;
+    int sock, n;
     struct sockaddr_un addr;
     size_t addr_len;
 
@@ -389,10 +403,10 @@ connect_to(const char *sock_file)
         return -1;
 
     addr.sun_family = AF_UNIX;
-    size = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sock_file);
-    if (size < 0 || (int) sizeof(addr.sun_path) < size)
+    n = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sock_file);
+    if (n < 0 || (int) sizeof(addr.sun_path) < n)
         return -1;
-    addr_len = offsetof(struct sockaddr_un, sun_path) + (size_t) size;
+    addr_len = offsetof(struct sockaddr_un, sun_path) + (size_t) n;
 
     if (connect(sock, (struct sockaddr *) &addr, addr_len) < 0) {
         close(sock);
