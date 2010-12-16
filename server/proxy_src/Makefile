@@ -12,7 +12,7 @@ all: $(target)
 $(target): $(objects)
 	$(CC) $(LDFLAGS) -o $@ $^ 
 
-main.o: main.c daemon.h send_magic_packet.h
+main.o: main.c agent.h daemon.h send_magic_packet.h
 
 daemon.o: daemon.c daemon.h
 

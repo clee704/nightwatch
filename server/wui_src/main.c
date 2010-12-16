@@ -30,7 +30,7 @@
 const char *pid_file;   // filename of the pid file
 const char *sock_file;  // filename for the proxy's socket to connect
 
-static const char *ajax_reply_start =
+static const char * const ajax_reply_start =
     "HTTP/1.1 200 OK\r\n"
     "Cache: no-cache\r\n"
     "Content-Type: application/json\r\n"
@@ -141,7 +141,7 @@ main(int argc, char **argv) {
 
     if (geteuid() != 0) {
         fprintf(stderr, "%s: must be run as root or setuid root\n",
-            program_invocation_short_name);
+                        program_invocation_short_name);
         exit(1);
     }
 
@@ -167,7 +167,7 @@ main(int argc, char **argv) {
         exit(2);  
     }
     while (1)
-        sleep(3600);  // sleep, mongoose will do all the jobs
+        sleep(3600);  // mongoose will do all the jobs
     mg_stop(ctx);
 
     return 0;
@@ -259,9 +259,9 @@ cleanup()
 }
 
 static void
-sigterm(int signum)
+sigterm(int unused)
 {
-    (void) signum;  // unused
+    (void) unused;
     syslog(LOG_INFO, "got SIGTERM; exiting");
     cleanup();
     exit(2);
@@ -320,7 +320,9 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
     }
 
     //
-    // TODO implement ajax calls
+    // TODO+
+    // request by "GETA\n"
+    // parse the response into a JSON object
     //
 
     // Close the connection to the proxy
@@ -336,8 +338,8 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
                    const struct mg_request_info *request_info,
                    const char *method)
 {
-    char buffer[100] = {0};
-    char device_id[24] = {0};
+    char buffer[64] = {0};
+    char device_id[32] = {0};
     int sock, n;
 
     // Get the argument
@@ -386,7 +388,7 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
         syslog(LOG_WARNING, "can't close the socket: %m");
 
     //
-    // TODO parse the response and make a JSON object
+    // TODO+ parse the response into a JSON object
     //
     syslog(LOG_DEBUG, "response from the proxy");
     syslog(LOG_DEBUG, "%s", buffer);
@@ -401,7 +403,7 @@ ajax_print_response(struct mg_connection *conn, const char *message)
     success = strncmp(message, "ok", 2) == 0;
     mg_printf(conn, "%s", ajax_reply_start);
     mg_printf(conn, "{\"success\": %s, \"message\": \"%s\"}",
-        success ? "true" : "false", message);
+              success ? "true" : "false", message);
 }
 
 static void
@@ -417,13 +419,14 @@ connect_to(const char *sock_file)
 {
     int sock, n;
     struct sockaddr_un addr;
-    size_t addr_len;
+    socklen_t addr_len;
 
+    memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     n = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sock_file);
     if (n < 0 || (int) sizeof(addr.sun_path) < n)
         return -1;
-    addr_len = offsetof(struct sockaddr_un, sun_path) + (size_t) n;
+    addr_len = offsetof(struct sockaddr_un, sun_path) + (socklen_t) n;
 
     sock = socket(PF_UNIX, SOCK_STREAM, 0);
     if (sock < 0)
