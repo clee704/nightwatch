@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <signal.h>
@@ -37,8 +38,8 @@
 
 // Options that are not configurable by the user
 #define AGN_MAX_AGENTS 64
-#define AGN_BACKLOG 100
-#define WUI_BACKLOG 10
+#define AGN_BACKLOG 32
+#define WUI_BACKLOG 8
 
 const char *pid_file;
 const char *wui_sock_file;
@@ -79,7 +80,7 @@ static void *
 agn_accept(void *sock);
 
 static void *
-agn_new_connection(void *conn);
+agn_read(void *conn);
 
 static int
 agn_find_slot(void);
@@ -106,7 +107,7 @@ main()
 
     if (geteuid() != 0) {
         fprintf(stderr, "%s: must be run as root or setuid root\n",
-            program_invocation_short_name);
+                        program_invocation_short_name);
         exit(1);
     }
 
@@ -233,8 +234,9 @@ agn_accept(void *sock)
 {
     struct sockaddr_in addr;
     socklen_t addr_len;
-    int conn, err;
+    int conn, index, err;
     pthread_t tid;
+    struct agent *a = NULL;
 
     while (1) {
         addr_len = sizeof(addr);
@@ -243,44 +245,58 @@ agn_accept(void *sock)
             syslog(LOG_WARNING, "(agn) can't accept: %m");
             continue;
         }
-        err = pthread_create(&tid, NULL, agn_new_connection, (void *) conn);
+        index = agn_find_slot();
+        if (index < 0) {
+            syslog(LOG_ERR, "(agn) maximum agents limit (%d) exceeded; "
+                            "closing the new connection", AGN_MAX_AGENTS);
+            goto error;
+        }
+        a = agents[index] = (struct agent *) malloc(sizeof(struct agent));
+        if (a == NULL)
+            goto malloc_error;
+        if (inet_ntop(AF_INET, &addr.sin_addr, a->ip, INET_ADDRSTRLEN) == NULL) {
+            syslog(LOG_ERR, "(agn) inet_ntop failed: %m");
+            goto error;
+        }
+        a->fd = (int) conn;
+        a->state = UP;
+        strcpy(a->hostname, "");
+        strcpy(a->mac, "");
+        a->monitored_since = time(NULL);
+        a->total_uptime = 0;
+        a->total_downtime = 0;
+        a->sleep_time = 0;
+        err = pthread_create(&tid, NULL, agn_read, (void *) index);
         if (err != 0) {
             syslog(LOG_ERR, "(agn) can't create a thread: %s; "
-                "closing the connection", strerror(err));
-            if (close(conn) < 0)
-                syslog(LOG_WARNING, "(agn) can't close the connection: %m");
+                            "closing the connection", strerror(err));
+            goto error;
         }
+        continue;
+    malloc_error:
+        syslog(LOG_ERR, "(agn) can't allocate memory: %m");
+        goto error;
+    error:
+        if (a != NULL)
+            free(a);
+        if (index >= 0)
+            agn_free_slot(index);
+        if (close(conn) < 0)
+            syslog(LOG_WARNING, "(agn) can't close the connection: %m");
     }
     return (void *) 0;
 }
 
 static void *
-agn_new_connection(void *conn)
+agn_read(void *index)
 {
-    char buffer[128];
-    struct agent *a;
-    int index, n;
+    struct agent *a = agents[(int) index];
+    char buffer[512];
+    int n;
 
-    index = agn_find_slot();
-    if (index < 0) {
-        syslog(LOG_ERR, "(agn) maximum agents limit (%d) exceeded; "
-            "closing the new connection", AGN_MAX_AGENTS);
-        goto end;
-    }
-    a = agents[index] = (struct agent *) malloc(sizeof(struct agent));
-    if (a == NULL) {
-        syslog(LOG_ERR, "(agn) can't allocate memory: %m");
-        goto end;
-    }
-    a->fd = (int) conn;
-    a->state = UP;
-    a->monitored_since = time(NULL);
-    a->total_uptime = 0;
-    a->total_downtime = 0;
-    a->sleep_time = 0;
     while ((n = read(a->fd, buffer, sizeof(buffer))) > 0) {
         //
-        // TODO+
+        // TODO+1
         // catch the sleep signal
         //
         // simply echo for now
@@ -289,12 +305,10 @@ agn_new_connection(void *conn)
             break;
         }
     }
-end:
-    if (a != NULL)
-        free(a);
-    agn_free_slot(index);
-    if (close((int) conn) < 0)
+    if (close(a->fd) < 0)
         syslog(LOG_WARNING, "(agn) can't close the connection: %m");
+    free(a);
+    agn_free_slot((int) index);
     return (void *) 0;
 }
 
@@ -323,11 +337,11 @@ agn_free_slot(int index)
 }
 
 static void *
-agn_monitor_network(void *unsued)
+agn_monitor_network(void *unused)
 {
     (void) unused;
     //
-    // TODO+
+    // TODO+2
     // monitor the network
     // if the IP address of a SYN packet matches,
     //   resume the agent
@@ -370,7 +384,7 @@ wui_listen(const char *sock_file)
 static void
 wui_accept(int sock)
 {
-    static char buffer[256];
+    static char buffer[64];
     struct sockaddr_un addr;
     socklen_t addr_len;
     int conn, n;
@@ -384,7 +398,7 @@ wui_accept(int sock)
         }
         while ((n = read(conn, buffer, sizeof(buffer))) > 0) {
             //
-            // TODO+
+            // TODO+0
             // read the request from the web UI and respond accordingly;
             // requests:
             //   "RSUM <deviceId>\n": resume the device
