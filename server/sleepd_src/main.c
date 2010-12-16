@@ -101,6 +101,9 @@ static void  // not thread-safe
 wui_accept_and_read(int fd);
 
 static void
+request(int fd, int method, char *char_buf, struct request *req_buf);
+
+static void
 respond(int fd, int status, char *char_buf, struct response *resp_buf);
 
 static void  // not to be called without mutex locked
@@ -257,6 +260,7 @@ agn_accept(void *fd)
             syslog(LOG_WARNING, "(agn) can't accept: %m");
             continue;
         }
+        syslog(LOG_INFO, "(agn) new connection at fd=%d", conn);
         index = agn_find_empty_slot();
         if (index < 0) {
             syslog(LOG_NOTICE, "(agn) maximum agents limit (%d) exceeded",
@@ -337,13 +341,12 @@ agn_read(void *index)
                 respond(a->fd, 400, resp_buf, &resp);
                 goto cleanup;
             }
+            respond(a->fd, 200, resp_buf, &resp);
             break;
         case NTFY:
-            //
-            // TODO+
-            //
-            syslog(LOG_DEBUG, "(agn) NTFY");
-            break;
+            respond(a->fd, 200, resp_buf, &resp);
+            suspend(a);
+            return (void *) 0;
         default:
             respond(a->fd, 501, resp_buf, &resp);
             goto cleanup;
@@ -464,50 +467,44 @@ wui_accept_and_read(int fd)
                     respond(conn, 400, resp_buf, &resp);
                     break;
                 }
-                // Find the agent
                 pthread_mutex_lock(&agn_mutex);
+
+                // Find the agent
                 for (i = 0; i < AGN_MAX_AGENTS; ++i) {
                     if (agn_alloc[i] == 0)
                         continue;
-                    a = agents[i];
-                    syslog(LOG_DEBUG, "(wui) probe");
-                    if (ETHER_ADDRS_EQUAL(a->mac, mac)) {
-                        if (req.method == RSUM)
-                            if (a->state == UP || a->state == RESUMING)
-                                respond(conn, 409, resp_buf, &resp);
-                            else {
-                                resume(a);
-                                respond(conn, 200, resp_buf, &resp);
-                            }
-                        else  // req.method == SUSP
-                            if (a->state == SUSPENDED)
-                                respond(conn, 409, resp_buf, &resp);
-                            else {
-                                suspend(a);
-                                respond(conn, 200, resp_buf, &resp);
-                            }
+                    if (ETHER_ADDRS_EQUAL((a = agents[i])->mac, mac))
                         break;
-                    }
                 }
-                pthread_mutex_unlock(&agn_mutex);
-                if (i == AGN_MAX_AGENTS)
+                
+                // ... not found
+                if (i == AGN_MAX_AGENTS) {
                     respond(conn, 404, resp_buf, &resp);
+                    pthread_mutex_unlock(&agn_mutex);
+                    break;
+                }
+
+                if (req.method == RSUM)
+                    if (a->state == UP || a->state == RESUMING)
+                        respond(conn, 409, resp_buf, &resp);
+                    else {
+                        resume(a);
+                        respond(conn, 200, resp_buf, &resp);
+                    }
+                else  // req.method == SUSP
+                    if (a->state == SUSPENDED)
+                        respond(conn, 409, resp_buf, &resp);
+                    else {
+                        request(a->fd, SUSP, req_buf, &req);
+                        respond(conn, 200, resp_buf, &resp);
+                    }
+
+                pthread_mutex_unlock(&agn_mutex);
                 break; 
             case GETA:
                 //
                 // TODO+0
                 //
-                // response for GETA:
-                //   "200 OK\n"
-                //   "\n"
-                //   "<hostname>, <ip-address>, <mac-address>, ...\n"
-                //   ...
-                //   "\n"  # empty line means the end of the list
-                //
-                // simply echo for now
-                //
-                if (write(conn, req_buf, n) != n)
-                    syslog(LOG_WARNING, "(wui) can't write: %m");
                 break;
             default:
                 respond(conn, 501, resp_buf, &resp);
@@ -519,6 +516,21 @@ wui_accept_and_read(int fd)
         if (close(conn))
             syslog(LOG_WARNING, "(wui) can't close the connection: %m");
     }
+}
+
+static void
+request(int fd, int method, char *char_buf, struct request *req_buf)
+{
+    int len;
+
+    req_buf->method = method;
+    req_buf->has_uri = 0;
+    req_buf->has_data = 0;
+    len = serialize_request(req_buf, char_buf);
+    if (len < 0)
+        syslog(LOG_WARNING, "serialize_request() failed");
+    if (write(fd, char_buf, len) != len)
+        syslog(LOG_WARNING, "can't write: %m");
 }
 
 static void
@@ -540,9 +552,9 @@ respond(int fd, int status, char *char_buf, struct response *resp_buf)
     resp_buf->has_data = 0;
     len = serialize_response(resp_buf, char_buf);
     if (len < 0)
-        syslog(LOG_WARNING, "(wui) serialize_response failed");
+        syslog(LOG_WARNING, "serialize_response() failed");
     if (write(fd, char_buf, len) != len)
-        syslog(LOG_WARNING, "(wui) can't write: %m");
+        syslog(LOG_WARNING, "can't write: %m");
 }
 
 static void
