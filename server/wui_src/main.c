@@ -338,8 +338,8 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
                    const struct mg_request_info *request_info,
                    const char *method)
 {
-    char buffer[50] = {0};
-    char device_id[20] = {0};
+    char buffer[64] = {0};
+    char device_id[32] = {0};
     int sock, n;
 
     // Get the argument
