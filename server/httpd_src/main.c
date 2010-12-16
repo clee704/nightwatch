@@ -17,6 +17,7 @@
 
 #include "mongoose.h"
 #include "daemon.h"
+#include "protocol.h"
 
 // Whenever you add more command-line options, update MAX_OPTIONS accordingly
 #define MAX_OPTIONS 5
@@ -25,7 +26,7 @@
 #define DEFAULT_LISTENING_PORTS "8080"
 #define DEFAULT_ERROR_LOG_FILE "/var/log/nitch-httpd.err"
 #define DEFAULT_PID_FILE "/var/run/nitch-httpd.pid"
-#define DEFAULT_SOCKET "/var/run/nitch-proxyd.sock"
+#define DEFAULT_SOCKET "/var/run/nitch-sleepd.sock"
 
 const char *pid_file;   // filename of the pid file
 const char *sock_file;  // filename for the proxy's socket to connect
@@ -151,9 +152,9 @@ main(int argc, char **argv) {
     // Make the process a daemon
     daemonize(program_invocation_short_name);
 
-    if (write_pid(pid_file) < 0)
+    if (write_pid(pid_file))
         syslog(LOG_WARNING, "can't write PID file to %s: %m", pid_file);
-    if (setuid(getuid()) < 0)
+    if (setuid(getuid()))
         syslog(LOG_WARNING, "can't drop the root privileges: %m");
     if (atexit(cleanup))
         syslog(LOG_WARNING, "atexit() failed: %m");
@@ -241,7 +242,7 @@ display_help_and_exit()
         "                                   (defaults to %s)\n"
         "  -p, --pid-file=FILE            set the PID file\n"
         "                                   (defaults to %s)\n"
-        "  -s, --socket=FILE              locate nitch-proxyd's socket file\n"
+        "  -s, --socket=FILE              locate nitch-sleepd's socket file\n"
         "                                   (defaults to %s)\n"
         "  -h, --help                     display this help and exit\n"
         "\n",
@@ -254,7 +255,7 @@ display_help_and_exit()
 static void
 cleanup()
 {
-    if (unlink(pid_file) < 0 && errno != ENOENT)
+    if (unlink(pid_file) && errno != ENOENT)
         syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
 }
 
@@ -314,7 +315,7 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
     sock = connect_to(sock_file);
     if (sock < 0) {
         syslog(LOG_WARNING, "can't connect to %s: %m", sock_file);
-        syslog(LOG_WARNING, "make sure nitch-proxyd is running");
+        syslog(LOG_WARNING, "make sure nitch-sleepd is running");
         ajax_print_response(conn, "internal server error");
         return;
     }
@@ -326,7 +327,7 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
     //
 
     // Close the connection to the proxy
-    if (close(sock) < 0)
+    if (close(sock))
         syslog(LOG_WARNING, "can't close the socket: %m");
 
     mg_printf(conn, "%s", ajax_reply_start);
@@ -338,8 +339,8 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
                    const struct mg_request_info *request_info,
                    const char *method)
 {
-    char buffer[64] = {0};
-    char device_id[32] = {0};
+    char buffer[MAX_REQUEST_LEN] = {0};
+    char device_id[MAX_URI_LEN] = {0};
     int sock, n;
 
     // Get the argument
@@ -353,7 +354,7 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
     sock = connect_to(sock_file);
     if (sock < 0) {
         syslog(LOG_WARNING, "can't connect to %s: %m", sock_file);
-        syslog(LOG_WARNING, "make sure nitch-proxyd is running");
+        syslog(LOG_WARNING, "make sure nitch-sleepd is running");
         ajax_print_response(conn, "internal server error");
         return;
     }
@@ -373,24 +374,24 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
     }
 
     // Read the response from the proxy
-    n = read(sock, buffer, sizeof(buffer));
+    n = read(sock, buffer, sizeof(buffer) - 1);
     if (n <= 0) {
         if (n == 0)
-            syslog(LOG_WARNING, "unexpected EOF from the proxy");
+            syslog(LOG_NOTICE, "unexpected EOF from the proxy");
         else
             syslog(LOG_WARNING, "can't read: %m");
         ajax_print_response(conn, "internal server error");
+        return;
     }
     buffer[n] = 0;
 
     // Close the connection to the proxy
-    if (close(sock) < 0)
+    if (close(sock))
         syslog(LOG_WARNING, "can't close the socket: %m");
 
     //
     // TODO+ parse the response into a JSON object
     //
-    syslog(LOG_DEBUG, "response from the proxy");
     syslog(LOG_DEBUG, "%s", buffer);
     ajax_print_response(conn, "ok");
 }
@@ -431,7 +432,7 @@ connect_to(const char *sock_file)
     sock = socket(PF_UNIX, SOCK_STREAM, 0);
     if (sock < 0)
         return -1;
-    if (connect(sock, (struct sockaddr *) &addr, addr_len) < 0) {
+    if (connect(sock, (struct sockaddr *) &addr, addr_len)) {
         close(sock);
         return -1;
     }
