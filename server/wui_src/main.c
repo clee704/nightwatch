@@ -42,6 +42,9 @@ static void
 display_help_and_exit(void);
 
 static void
+cleanup(void);
+
+static void
 sigterm(int signum);
 
 static void *
@@ -149,13 +152,15 @@ main(int argc, char **argv) {
         syslog(LOG_WARNING, "can't write PID file to %s: %m", pid_file);
     if (setuid(getuid()) < 0)
         syslog(LOG_WARNING, "can't drop the root privileges: %m");
+    if (atexit(cleanup))
+        syslog(LOG_WARNING, "atexit() failed: %m");
     if (register_signal_handler(SIGTERM, sigterm))
         syslog(LOG_WARNING, "can't catch SIGTERM: %m");
 
     // Start mongoose
     ctx = mg_start(&event_handler, mg_options);
     if (ctx == NULL) {
-        syslog(LOG_ERR, "can't start mongoose");
+        syslog(LOG_ERR, "can't start mongoose; exiting");
         exit(2);  
     }
     while (1)
@@ -202,13 +207,13 @@ get_commandline_options(int argc, char **argv, const char **mg_options,
         case 'h': display_help_and_exit(); break;
         case '?':
             // getopt_long already printed an error message
-            break;
+            exit(1);
         default:
             abort();
         }
     }
 
-    // Set options for mangoose
+    // Set options for mongoose
     i = 0;
     mg_options[i++] = "document_root";
     mg_options[i++] = document_root;
@@ -244,12 +249,18 @@ display_help_and_exit()
 }
 
 static void
+cleanup()
+{
+    if (unlink(pid_file) < 0 && errno != ENOENT)
+        syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
+}
+
+static void
 sigterm(int signum)
 {
     (void) signum;  // unused
     syslog(LOG_INFO, "got SIGTERM; exiting");
-    if (unlink(pid_file) < 0)
-        syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
+    cleanup();
     exit(2);
 }
 
@@ -296,14 +307,20 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
     int sock;
     (void) unused;  // Suppress warning
 
+    // Connect to the proxy
     sock = connect_to(sock_file);
     if (sock < 0) {
         syslog(LOG_WARNING, "can't connect to %s: %m", sock_file);
+        syslog(LOG_WARNING, "make sure nitch-proxyd is running");
+        ajax_print_response(conn, "internal server error");
         return;
     }
+
     //
     // TODO implement ajax calls
     //
+
+    // Close the connection to the proxy
     if (close(sock) < 0)
         syslog(LOG_WARNING, "can't close the socket: %m");
 
@@ -331,6 +348,7 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
     sock = connect_to(sock_file);
     if (sock < 0) {
         syslog(LOG_WARNING, "can't connect to %s: %m", sock_file);
+        syslog(LOG_WARNING, "make sure nitch-proxyd is running");
         ajax_print_response(conn, "internal server error");
         return;
     }
@@ -360,16 +378,16 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
     }
     buffer[n] = 0;
 
+    // Close the connection to the proxy
+    if (close(sock) < 0)
+        syslog(LOG_WARNING, "can't close the socket: %m");
+
     //
     // TODO parse the response and make a JSON object
     //
     syslog(LOG_DEBUG, "response from the proxy");
     syslog(LOG_DEBUG, "%s", buffer);
     ajax_print_response(conn, "ok");
-
-    // Close the connection to the proxy
-    if (close(sock) < 0)
-        syslog(LOG_WARNING, "can't close the socket: %m");
 }
 
 static void
@@ -398,20 +416,18 @@ connect_to(const char *sock_file)
     struct sockaddr_un addr;
     size_t addr_len;
 
-    sock = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (sock < 0)
-        return -1;
-
     addr.sun_family = AF_UNIX;
     n = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sock_file);
     if (n < 0 || (int) sizeof(addr.sun_path) < n)
         return -1;
     addr_len = offsetof(struct sockaddr_un, sun_path) + (size_t) n;
 
+    sock = socket(PF_UNIX, SOCK_STREAM, 0);
+    if (sock < 0)
+        return -1;
     if (connect(sock, (struct sockaddr *) &addr, addr_len) < 0) {
         close(sock);
         return -1;
     }
-
     return sock;
 }
