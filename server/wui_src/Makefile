@@ -1,5 +1,5 @@
 target = nitch-httpd
-sources = main.c ajax.c daemon.c mongoose/mongoose.c
+sources = main.c daemon.c mongoose/mongoose.c
 objects = $(sources:.c=.o)
 
 VPATH = mongoose
@@ -12,9 +12,7 @@ all: $(target)
 $(target): $(objects)
 	$(CC) $(LDFLAGS) -o $@ $^ 
 
-main.o: main.c ajax.h daemon.h mongoose.h
-
-ajax.o: ajax.c mongoose.h ajax.h
+main.o: main.c daemon.h mongoose.h
 
 daemon.o: daemon.c daemon.h
 
