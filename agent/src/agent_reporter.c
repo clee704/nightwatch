@@ -30,7 +30,7 @@ void sendsignal(char* sigvalue)
 	if (DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER != ret) { 
 		exit(1);
 	}
-	msg = dbus_message_new_signal("/ntest/signal/Object",
+	msg = dbus_message_new_signal("/test/signal/Object",
 			"agent.signal.Type",
 			"Test");
 	if (NULL == msg) 
