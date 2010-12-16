@@ -26,7 +26,7 @@
 #define DEFAULT_LISTENING_PORTS "8080"
 #define DEFAULT_ERROR_LOG_FILE "/var/log/nitch-httpd.err"
 #define DEFAULT_PID_FILE "/var/run/nitch-httpd.pid"
-#define DEFAULT_SOCKET "/var/run/nitch-proxyd.sock"
+#define DEFAULT_SOCKET "/var/run/nitch-sleepd.sock"
 
 const char *pid_file;   // filename of the pid file
 const char *sock_file;  // filename for the proxy's socket to connect
@@ -242,7 +242,7 @@ display_help_and_exit()
         "                                   (defaults to %s)\n"
         "  -p, --pid-file=FILE            set the PID file\n"
         "                                   (defaults to %s)\n"
-        "  -s, --socket=FILE              locate nitch-proxyd's socket file\n"
+        "  -s, --socket=FILE              locate nitch-sleepd's socket file\n"
         "                                   (defaults to %s)\n"
         "  -h, --help                     display this help and exit\n"
         "\n",
@@ -315,7 +315,7 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
     sock = connect_to(sock_file);
     if (sock < 0) {
         syslog(LOG_WARNING, "can't connect to %s: %m", sock_file);
-        syslog(LOG_WARNING, "make sure nitch-proxyd is running");
+        syslog(LOG_WARNING, "make sure nitch-sleepd is running");
         ajax_print_response(conn, "internal server error");
         return;
     }
@@ -354,7 +354,7 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
     sock = connect_to(sock_file);
     if (sock < 0) {
         syslog(LOG_WARNING, "can't connect to %s: %m", sock_file);
-        syslog(LOG_WARNING, "make sure nitch-proxyd is running");
+        syslog(LOG_WARNING, "make sure nitch-sleepd is running");
         ajax_print_response(conn, "internal server error");
         return;
     }

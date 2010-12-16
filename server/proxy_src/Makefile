@@ -1,4 +1,4 @@
-target = nitch-proxyd
+target = nitch-sleepd
 sources = main.c send_magic_packet.c common/daemon.c common/protocol.c
 objects = $(sources:.c=.o)
 

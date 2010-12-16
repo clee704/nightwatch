@@ -37,10 +37,10 @@
 #define DEFAULT_AGN_PORT 4444
 
 // Option for the web UI
-#define DEFAULT_WUI_SOCKET "/var/run/nitch-proxyd.sock"
+#define DEFAULT_WUI_SOCKET "/var/run/nitch-sleepd.sock"
 
 // etc.
-#define DEFAULT_PID_FILE "/var/run/nitch-proxyd.pid"
+#define DEFAULT_PID_FILE "/var/run/nitch-sleepd.pid"
 
 // Options that are not configurable by the user
 #define AGN_MAX_AGENTS 64
