@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include <netinet/in.h>
 #include <pthread.h>
@@ -36,7 +37,7 @@
 
 // Options that are not configurable by the user
 // backlog sizes for listen()
-#define AGN_MAX_AGENTS 256
+#define AGN_MAX_AGENTS 1
 #define AGN_BACKLOG 100
 #define WUI_BACKLOG 10
 
@@ -47,6 +48,8 @@ int agn_sock;
 int wui_sock;
 
 struct agent *agents[AGN_MAX_AGENTS];
+int agents_alloc[AGN_MAX_AGENTS];  // 0 for free, 1 for allocated
+pthread_mutex_t agents_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void
 get_commandline_options(int argc, char **argv);
@@ -61,16 +64,25 @@ static void
 sigterm(int signum);
 
 static int
-agn_bind_and_listen(const char *ifname, int port);
+agn_listen(const char *ifname, int port);
 
 static void *
-agn_handle_connections(void *sock);
+agn_accept(void *sock);
+
+static void *
+agn_new_connection(void *conn);
 
 static int
-wui_bind_and_listen(const char *sock_file);
+agn_find_slot(void);
 
 static void
-wui_handle_connections(int sock);
+agn_free_slot(int index);
+
+static int
+wui_listen(const char *sock_file);
+
+static void
+wui_accept(int sock);
 
 int
 main()
@@ -107,26 +119,24 @@ main()
         syslog(LOG_WARNING, "can't catch SIGTERM: %m");
 
     // Handle connections from the agents
-    agn_sock = agn_bind_and_listen(agn_if, agn_port);
+    agn_sock = agn_listen(agn_if, agn_port);
     if (agn_sock < 0) {
-        syslog(LOG_ERR, "can't bind and listen on %s port %d: %m", agn_if, 
-            agn_port);
+        syslog(LOG_ERR, "can't listen on %s port %d: %m", agn_if, agn_port);
         exit(2);
     }
-    err = pthread_create(&tid, NULL, agn_handle_connections,
-        (void *) agn_sock);
+    err = pthread_create(&tid, NULL, agn_accept, (void *) agn_sock);
     if (err != 0) {
         syslog(LOG_ERR, "can't create a thread: %s", strerror(err));
         exit(2);
     }
 
     // The main thread deals with the web UI
-    wui_sock = wui_bind_and_listen(wui_sock_file);
+    wui_sock = wui_listen(wui_sock_file);
     if (wui_sock < 0) {
-        syslog(LOG_ERR, "can't bind and listen on %s: %m", wui_sock_file);
+        syslog(LOG_ERR, "can't listen on %s: %m", wui_sock_file);
         exit(2);
     }
-    wui_handle_connections(wui_sock);
+    wui_accept(wui_sock);
 
     return 0;
 }
@@ -172,7 +182,7 @@ sigterm(int signum)
 }
 
 static int
-agn_bind_and_listen(const char *ifname, int port)
+agn_listen(const char *ifname, int port)
 {
     struct sockaddr_in addr;
     int sock;
@@ -200,11 +210,12 @@ agn_bind_and_listen(const char *ifname, int port)
 }
 
 static void *
-agn_handle_connections(void *sock)
+agn_accept(void *sock)
 {
     struct sockaddr_in addr;
     socklen_t addr_len;
-    int conn;
+    int conn, err;
+    pthread_t tid;
 
     while (1) {
         addr_len = sizeof(addr);
@@ -213,15 +224,86 @@ agn_handle_connections(void *sock)
             syslog(LOG_WARNING, "(agn) can't accept: %m");
             continue;
         }
-        //
-        // TODO manage agents
-        //
+        err = pthread_create(&tid, NULL, agn_new_connection, (void *) conn);
+        if (err != 0) {
+            syslog(LOG_ERR, "(agn) can't create a thread: %s; "
+                "closing the connection", strerror(err));
+            if (close(conn) < 0)
+                syslog(LOG_WARNING, "(agn) can't close the connection: %m");
+        }
     }
     return (void *) 0;
 }
 
+static void *
+agn_new_connection(void *conn)
+{
+    char buffer[128];
+    struct agent *a;
+    int index, n;
+
+    index = agn_find_slot();
+    if (index < 0) {
+        syslog(LOG_ERR, "(agn) maximum agents limit (%d) exceeded; "
+            "closing the new connection", AGN_MAX_AGENTS);
+        goto end;
+    }
+    a = agents[index] = (struct agent *) malloc(sizeof(struct agent));
+    if (a == NULL) {
+        syslog(LOG_ERR, "(agn) can't allocate memory: %m");
+        goto end;
+    }
+    a->fd = (int) conn;
+    a->state = UP;
+    a->monitored_since = time(NULL);
+    a->total_uptime = 0;
+    a->total_downtime = 0;
+    a->sleep_time = 0;
+    while ((n = read(a->fd, buffer, sizeof(buffer))) > 0) {
+        //
+        // TODO+ impl
+        //
+        // simply echo for now
+        if (write(a->fd, buffer, n) != n) {
+            syslog(LOG_WARNING, "(agn) can't write: %m");
+            break;
+        }
+    }
+end:
+    if (a != NULL)
+        free(a);
+    agn_free_slot(index);
+    if (close((int) conn) < 0)
+        syslog(LOG_WARNING, "(agn) can't close the connection: %m");
+    return (void *) 0;
+}
+
 static int
-wui_bind_and_listen(const char *sock_file)
+agn_find_slot()
+{
+    int i, ret = -1;
+
+    pthread_mutex_lock(&agents_mutex);
+    for (i = 0; i < AGN_MAX_AGENTS; ++i)
+        if (agents_alloc[i] == 0) {
+            agents_alloc[i] = 1;
+            ret = i;
+            break;
+        }
+    pthread_mutex_unlock(&agents_mutex);
+    return ret;
+}
+
+static void
+agn_free_slot(int index)
+{
+    pthread_mutex_lock(&agents_mutex);
+    agents_alloc[index] = 0;
+    pthread_mutex_unlock(&agents_mutex);
+}
+
+static int
+wui_listen(const char *sock_file)
 {
     struct sockaddr_un addr;
     socklen_t addr_len;
@@ -252,9 +334,9 @@ wui_bind_and_listen(const char *sock_file)
 }
 
 static void
-wui_handle_connections(int sock)
+wui_accept(int sock)
 {
-    static char buffer[4096];
+    static char buffer[256];
     struct sockaddr_un addr;
     socklen_t addr_len;
     int conn, n;
@@ -268,7 +350,7 @@ wui_handle_connections(int sock)
         }
         while ((n = read(conn, buffer, sizeof(buffer))) > 0) {
             //
-            // TODO impl
+            // TODO+ impl
             //
             // simply echo for now
             if (write(conn, buffer, n) != n) {
