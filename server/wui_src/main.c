@@ -141,7 +141,7 @@ main(int argc, char **argv) {
 
     if (geteuid() != 0) {
         fprintf(stderr, "%s: must be run as root or setuid root\n",
-            program_invocation_short_name);
+                        program_invocation_short_name);
         exit(1);
     }
 
@@ -167,7 +167,7 @@ main(int argc, char **argv) {
         exit(2);  
     }
     while (1)
-        sleep(3600);  // sleep, mongoose will do all the jobs
+        sleep(3600);  // mongoose will do all the jobs
     mg_stop(ctx);
 
     return 0;
@@ -338,8 +338,8 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
                    const struct mg_request_info *request_info,
                    const char *method)
 {
-    char buffer[48] = {0};
-    char device_id[24] = {0};
+    char buffer[50] = {0};
+    char device_id[20] = {0};
     int sock, n;
 
     // Get the argument
@@ -403,7 +403,7 @@ ajax_print_response(struct mg_connection *conn, const char *message)
     success = strncmp(message, "ok", 2) == 0;
     mg_printf(conn, "%s", ajax_reply_start);
     mg_printf(conn, "{\"success\": %s, \"message\": \"%s\"}",
-        success ? "true" : "false", message);
+              success ? "true" : "false", message);
 }
 
 static void
