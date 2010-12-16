@@ -259,9 +259,9 @@ cleanup()
 }
 
 static void
-sigterm(int signum)
+sigterm(int unused)
 {
-    (void) signum;  // unused
+    (void) unused;
     syslog(LOG_INFO, "got SIGTERM; exiting");
     cleanup();
     exit(2);
@@ -320,7 +320,9 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
     }
 
     //
-    // TODO impl
+    // TODO+
+    // request by "GETA\n"
+    // parse the response into a JSON object
     //
 
     // Close the connection to the proxy
@@ -386,7 +388,7 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
         syslog(LOG_WARNING, "can't close the socket: %m");
 
     //
-    // TODO parse the response and make a JSON object
+    // TODO+ parse the response into a JSON object
     //
     syslog(LOG_DEBUG, "response from the proxy");
     syslog(LOG_DEBUG, "%s", buffer);
