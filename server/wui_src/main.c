@@ -152,9 +152,9 @@ main(int argc, char **argv) {
     // Make the process a daemon
     daemonize(program_invocation_short_name);
 
-    if (write_pid(pid_file) < 0)
+    if (write_pid(pid_file))
         syslog(LOG_WARNING, "can't write PID file to %s: %m", pid_file);
-    if (setuid(getuid()) < 0)
+    if (setuid(getuid()))
         syslog(LOG_WARNING, "can't drop the root privileges: %m");
     if (atexit(cleanup))
         syslog(LOG_WARNING, "atexit() failed: %m");
@@ -255,7 +255,7 @@ display_help_and_exit()
 static void
 cleanup()
 {
-    if (unlink(pid_file) < 0 && errno != ENOENT)
+    if (unlink(pid_file) && errno != ENOENT)
         syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
 }
 
@@ -327,7 +327,7 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
     //
 
     // Close the connection to the proxy
-    if (close(sock) < 0)
+    if (close(sock))
         syslog(LOG_WARNING, "can't close the socket: %m");
 
     mg_printf(conn, "%s", ajax_reply_start);
@@ -339,8 +339,8 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
                    const struct mg_request_info *request_info,
                    const char *method)
 {
-    char buffer[64] = {0};     // large enough to store a request to the proxy
-    char device_id[32] = {0};  // large enough to store a device ID
+    char buffer[MAX_REQUEST_LEN] = {0};
+    char device_id[MAX_URI_LEN] = {0};
     int sock, n;
 
     // Get the argument
@@ -385,7 +385,7 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
     buffer[n] = 0;
 
     // Close the connection to the proxy
-    if (close(sock) < 0)
+    if (close(sock))
         syslog(LOG_WARNING, "can't close the socket: %m");
 
     //
@@ -432,7 +432,7 @@ connect_to(const char *sock_file)
     sock = socket(PF_UNIX, SOCK_STREAM, 0);
     if (sock < 0)
         return -1;
-    if (connect(sock, (struct sockaddr *) &addr, addr_len) < 0) {
+    if (connect(sock, (struct sockaddr *) &addr, addr_len)) {
         close(sock);
         return -1;
     }

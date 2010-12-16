@@ -122,13 +122,13 @@ main()
     // Make the process a daemon
     daemonize(program_invocation_short_name);
 
-    if (write_pid(pid_file) < 0)
+    if (write_pid(pid_file))
         syslog(LOG_WARNING, "can't write PID file to %s: %m", pid_file);
-    if (setuid(getuid()) < 0)
+    if (setuid(getuid()))
         syslog(LOG_WARNING, "can't drop the root privileges: %m");
     if (atexit(cleanup))
         syslog(LOG_WARNING, "atexit() failed: %m");
-    if (register_signal_handler(SIGTERM, sigterm) < 0)
+    if (register_signal_handler(SIGTERM, sigterm))
         syslog(LOG_WARNING, "can't catch SIGTERM: %m");
 
     // Handle connections from the agents
@@ -138,14 +138,14 @@ main()
         exit(2);
     }
     err = pthread_create(&tid, NULL, agn_accept, (void *) agn_sock);
-    if (err != 0) {
+    if (err) {
         syslog(LOG_ERR, "can't create a thread: %s", strerror(err));
         exit(2);
     }
 
     // Monitor the network for SYN packets to suspended agents
     err = pthread_create(&tid, NULL, agn_monitor_network, 0);
-    if (err != 0) {
+    if (err) {
         syslog(LOG_ERR, "can't create a thread: %s", strerror(err));
         exit(2);
     }
@@ -186,9 +186,9 @@ cleanup()
     //
     //if (wui_sock >= 0 && close(wui_sock) < 0)
     //    syslog(LOG_ERR, "can't close the socket: %m");
-    if (unlink(pid_file) < 0 && errno != ENOENT)
+    if (unlink(pid_file) && errno != ENOENT)
         syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
-    if (unlink(wui_sock_file) < 0 && errno != ENOENT)
+    if (unlink(wui_sock_file) && errno != ENOENT)
         syslog(LOG_ERR, "can't unlink %s: %m", wui_sock_file);
 }
 
@@ -218,11 +218,11 @@ agn_listen(const char *ifname, int port)
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
         return -1;
-    if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+    if (bind(sock, (struct sockaddr *) &addr, sizeof(addr))) {
         close(sock);
         return -1;
     }
-    if (listen(sock, AGN_BACKLOG) < 0) {
+    if (listen(sock, AGN_BACKLOG)) {
         close(sock);
         return -1;
     }
@@ -262,7 +262,7 @@ agn_accept(void *sock)
         a->total_downtime = 0;
         a->sleep_time = 0;
         err = pthread_create(&tid, NULL, agn_read, (void *) index);
-        if (err != 0) {
+        if (err) {
             syslog(LOG_ERR, "(agn) can't create a thread: %s; "
                             "closing the connection", strerror(err));
             goto error;
@@ -276,7 +276,7 @@ agn_accept(void *sock)
             free(a);
         if (index >= 0)
             agn_return_slot(index);
-        if (close(conn) < 0)
+        if (close(conn))
             syslog(LOG_WARNING, "(agn) can't close the connection: %m");
     }
     return (void *) 0;
@@ -286,7 +286,7 @@ static void *
 agn_read(void *index)
 {
     struct agent *a = agents[(int) index];
-    char buffer[1024];  // large enough to store a request from the agent
+    char buffer[MAX_REQUEST_LEN];
     int n;
 
     while ((n = read(a->fd, buffer, sizeof(buffer))) > 0) {
@@ -300,7 +300,7 @@ agn_read(void *index)
             break;
         }
     }
-    if (close(a->fd) < 0)
+    if (close(a->fd))
         syslog(LOG_WARNING, "(agn) can't close the connection: %m");
     free(a);
     agn_return_slot((int) index);
@@ -352,7 +352,7 @@ wui_listen(const char *sock_file)
     socklen_t addr_len;
     int sock, n;
 
-    if (unlink(sock_file) < 0 && errno != ENOENT)
+    if (unlink(sock_file) && errno != ENOENT)
         return -1;
 
     memset(&addr, 0, sizeof(addr));
@@ -365,11 +365,11 @@ wui_listen(const char *sock_file)
     sock = socket(PF_UNIX, SOCK_STREAM, 0);
     if (sock < 0)
         return -1;
-    if (bind(sock, (struct sockaddr *) &addr, addr_len) < 0) {
+    if (bind(sock, (struct sockaddr *) &addr, addr_len)) {
         close(sock);
         return -1;
     }
-    if (listen(sock, WUI_BACKLOG) < 0) {
+    if (listen(sock, WUI_BACKLOG)) {
         close(sock);
         return -1;
     }
@@ -379,8 +379,8 @@ wui_listen(const char *sock_file)
 static void
 wui_accept_and_read(int sock)
 {
-    // large enough to store the request from the web UI
-    static char buffer[64];
+    static char buffer[MAX_REQUEST_LEN];
+    static struct request req;
 
     struct sockaddr_un addr;
     socklen_t addr_len;
@@ -418,7 +418,7 @@ wui_accept_and_read(int sock)
                 break;
             }
         }
-        if (close(conn) < 0)
+        if (close(conn))
             syslog(LOG_WARNING, "(wui) can't close the connection: %m");
     }
 }
