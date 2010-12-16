@@ -1,17 +1,15 @@
 #include "main.h"
 #define daemon_name "nitch_agent"
 #define connection_retry_num 10
-char server_ip[20];
-char server_hwip[30];
-int server_port = 5678;
-int server_socket;
-
+char server_ip[100];
+int server_port;
 enum REQ {SUSP, NTFY, STAT};
 int
 main (int argc, char **argv)
 {
 	pthread_t p_thread[2];
 	int thr_id;
+	int server_socket;
 	pid_t pid, sid;
 	
 	pid = fork();
@@ -34,10 +32,10 @@ main (int argc, char **argv)
 	}
 	read_config();
 
-	if( pthread_create(&p_thread[0], NULL, sleep_listener, NULL)){
+	if( pthread_create(&p_thread[0], NULL, sleep_listener, (void*)&server_socket)){
 		syslog(LOG_ERR, "daemon can't make thread");
 	}
-	if ( pthread_create(&p_thread[1], NULL, request_handler, NULL)){
+	if ( pthread_create(&p_thread[1], NULL, request_handler, (void*)&server_socket)){
 		syslog(LOG_ERR, "daemon can't make thread");
 	}
 
@@ -52,6 +50,7 @@ main (int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
+	send_host_info(server_socket);
 
 	pthread_join(p_thread[0], NULL);
 	pthread_join(p_thread[1], NULL);
@@ -59,36 +58,55 @@ main (int argc, char **argv)
 	close(STDIN_FILENO);
 	close(STDERR_FILENO);
 	close(STDOUT_FILENO);
+	close(server_socket);
 	exit(EXIT_SUCCESS);
 
 }
 void *
-request_handler()
+request_handler(void *socket)
 {
+	syslog(LOG_DEBUG, "start request handler");
 	char buf[100];
+	int server_socket = *((int *)socket);
 	while(1){
 		read(server_socket, buf, 100);
-		if(buf == NULL)
+		if(buf == NULL){
 			sleep(1);
-		else if(strncmp(buf, "SUSP", 4) == 0){
+			continue;
+		}
+		if(strncmp(buf, "SUSP\n", 5) == 0){
+			strncpy(buf,"200 OK\n", 7);
+			write(server_socket, buf, strlen(buf));
+			syslog(LOG_INFO, "agent sent OK message");
 			go_to_sleep();
 		}
-		else if(strncmp(buf, "STAT", 4) == 0){
-			sprintf(buf, "%f", get_cpu_usage());
+		else if(strncmp(buf, "STAT\n", 5) == 0){
+			sprintf(buf, "%f\n", get_cpu_usage());
+			write(server_socket, buf, strlen(buf));
+			syslog(LOG_INFO, "agent sent cpu usage");
+		}
+		else if(strncmp(buf, "PING\n", 5) == 0){
+			strncpy(buf,"200 OK\n", 7);
+			syslog(LOG_INFO, "agent sent OK message");
 			write(server_socket, buf, strlen(buf));
 		}
 	}
 }
 void
-send_host_name(int serverfd)
+send_host_info(int serverfd)
 {
 	char hostname[100];
+	char hwaddr[20];
+	char buf[200];
 	gethostname(hostname, 100);
-	if( write(serverfd, hostname, 100) < 0 ){
+	get_hwaddr(hwaddr);
+	sprintf(buf,"INFO\n\n%s\n%s\n\n", hostname, hwaddr);
+	
+	if( write(serverfd, buf, strlen(buf)) < 0 ){
 		syslog(LOG_WARNING, "can't send host name to server");
 	}
 	else{
-		syslog(LOG_INFO, "host name was successfully sent");
+		syslog(LOG_INFO, "host name and mac was successfully sent : %s", buf);
 	}
 }
 void
@@ -99,17 +117,15 @@ read_config()
 	if ( conf < 0) {
 		syslog(LOG_ERR, "can't open configuration file. use default option");
 		strncopy(server_ip, "147.46.242.78", strlen("147.46.24.78"));
-		server_port = 5678;
-		strncopy(server_hwip, "20:cf:30:08:56:cd", strlen("20:cf:30:08:56:cd"));
+		server_port = 4444;
 	}
 	else{
 		fgets(buf, 100, conf);
-		strncpy(server_ip, buf, strlen(buf));
+		strncpy(server_ip, buf, strlen(buf)-1);
 		fgets(buf, 100, conf);
 		server_port = atoi(buf);
 		fgets(buf, 100, conf);
-		strncpy(server_hwip, buf, strlen(buf));
-		syslog(LOG_INFO, "use %s on port %d, with hwaddr %s", server_ip, server_port, server_hwip);
+		syslog(LOG_INFO, "use %s on port %d", server_ip, server_port);
 	}
 }
 
@@ -127,7 +143,7 @@ make_connect(char *server, int port)
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(port);
 	server_addr.sin_addr.s_addr = inet_addr(server);
-	if( -1 == connect( server_socket, (struct sockaddr*)&server_addr, sizeof( server_addr))){
+	if( -1 == connect( server_socket, (struct sockaddr*)&server_addr, sizeof( server_addr))){ 
 		syslog(LOG_ERR, "can't connect to server. retry in 1 seconnd");
 		return -1;
 	}
@@ -143,46 +159,36 @@ go_to_sleep ()
 	return 0;
 }
 void *
-sleep_listener()
+sleep_listener(void *socketfd)
 {
-	DBusConnection *connection;
-	DBusMessage *msg;
-	DBusError error;
-	int ret;
-
-	dbus_error_init(&error);
-
-	connection = dbus_bus_get (DBUS_BUS_SYSTEM, &error);
-
-	if( connection == NULL ) {
-		syslog(LOG_ERR, "Failed to open connection to bus: %s\n",error.message);
-		dbus_error_free(&error);
-		return ;
-	}
+	int server_socket = *((int *)socketfd);
+	char buf[10];
 	
-	ret = dbus_bus_request_name(connection, "nitch.agent.signal.sink", DBUS_NAME_FLAG_REPLACE_EXISTING , &error);
-	if( dbus_error_is_set(&error)){
-		syslog(LOG_ERR, "Name Error %s\n", error.message);
-		dbus_error_free(&error);
-		return ;
-	}
-	dbus_bus_add_match(connection, "type='signal',interface='agent.signal.Type'", &error);
-	if(dbus_error_is_set(&error)){
-		syslog(LOG_ERR, "Match Error %s\n", error.message);
-		return ;
-	}
 
-	while(1)
-	{
-		dbus_connection_read_write(connection, 0);
-		msg = dbus_connection_pop_message(connection);
+	struct sockaddr_un my_addr, reporter_addr;
+	int my_sockfd, reporter_sockfd;
 
-		if (NULL== msg) {
-			sleep(0.3);
-			continue;
-		}
-		if(dbus_message_is_signal(msg, "agent.signal.Type","Test")) {
-			syslog(LOG_NOTICE, "got sleep signal. send notify message to server");
-		}
+	if((my_sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
+		syslog(LOG_ERR, "socket open error");
 	}
+	bzero(&my_addr, sizeof(my_addr));
+	my_addr.sun_family = AF_UNIX;
+	strcpy(my_addr.sun_path, "/tmp/nitchsocket");
+
+	unlink(my_addr.sun_path);
+	if(bind(my_sockfd, (struct sockaddr *)&my_addr, sizeof(my_addr)) < 0){
+		syslog(LOG_ERR, "socket bind error");
+	}
+	syslog(LOG_DEBUG, "listening on /tmp/nitchsocket");
+	listen(my_sockfd, 5);
+	int clilen = sizeof(reporter_addr);
+
+	reporter_sockfd = accept(my_sockfd, (struct sockaddr *)&reporter_addr, &clilen);
+
+	syslog(LOG_NOTICE, "got sleep signal. send notification message to server");
+	write(server_socket, "NTFY\n", 5);
+	
+	close(reporter_sockfd);
+	close(my_sockfd);
+
 }

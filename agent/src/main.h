@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <dbus/dbus.h>
 #include <sys/stat.h>
+#include <sys/un.h>
 #include <syslog.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -16,6 +17,6 @@
 int make_connect(char *, int);
 int go_to_sleep();
 void read_config();
-void send_host_name(int);
-void *sleep_listener();
-void *request_handler();
+void send_host_info(int);
+void *sleep_listener(void*);
+void *request_handler(void*);
