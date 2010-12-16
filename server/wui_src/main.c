@@ -18,7 +18,9 @@
 #include "mongoose.h"
 #include "daemon.h"
 
+// Whenever you add more command-line options, update MAX_OPTIONS accordingly
 #define MAX_OPTIONS 5
+
 #define DEFAULT_DOCUMENT_ROOT "/var/lib/nitch-httpd"
 #define DEFAULT_LISTENING_PORTS "8080"
 #define DEFAULT_ERROR_LOG_FILE "/var/log/nitch-httpd.err"
