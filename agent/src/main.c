@@ -39,10 +39,10 @@ main (int argc, char **argv)
 	read_config();
 
 	//make thread to listen sleeping signal and handle proxy server command
-	if( pthread_create(&p_thread[0], NULL, sleep_listener, (void*)&server_socket)){
+	if( pthread_create(&p_thread[0], NULL, sleep_listener, (void*)server_socket)){
 		syslog(LOG_ERR, "daemon can't make thread");
 	}
-	if ( pthread_create(&p_thread[1], NULL, request_handler, (void*)&server_socket)){
+	if ( pthread_create(&p_thread[1], NULL, request_handler, (void*)server_socket)){
 		syslog(LOG_ERR, "daemon can't make thread");
 	}
 
@@ -75,21 +75,12 @@ request_handler(void *socket)
 {
 	syslog(LOG_DEBUG, "start request handler");
 	char buf[100];
-	int server_socket = *((int *)socket);
+	int server_socket = (int)socket;
 	while(1){
 		read(server_socket, buf, 100);
-		if(buf == NULL){
-			sleep(1);
-			continue;
-		}
 		if(strncmp(buf, "SUSP\n", 5) == 0){
 			send_ok(server_socket);
 			go_to_sleep();
-		}
-		else if(strncmp(buf, "STAT\n", 5) == 0){
-			sprintf(buf, "%f\n", get_cpu_usage());
-			write(server_socket, buf, strlen(buf));
-			syslog(LOG_INFO, "agent sent cpu usage");
 		}
 		else if(strncmp(buf, "PING\n", 5) == 0){
 			send_ok(server_socket);
@@ -172,7 +163,7 @@ go_to_sleep ()
 void *
 sleep_listener(void *socketfd)
 {
-	int server_socket = *((int *)socketfd);
+	int server_socket = (int)socketfd;
 	char buf[10];
 	
 	struct sockaddr_un my_addr, reporter_addr;
