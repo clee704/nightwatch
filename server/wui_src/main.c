@@ -381,6 +381,7 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
         else
             syslog(LOG_WARNING, "can't read: %m");
         ajax_print_response(conn, "internal server error");
+        return;
     }
     buffer[n] = 0;
 
