@@ -18,11 +18,16 @@
 
 #include <error.h>
 #include <getopt.h>
+#include <netinet/ether.h>
 
 #include "agent.h"
 #include "send_magic_packet.h"
 #include "daemon.h"
 #include "protocol.h"
+
+#define ETHER_ADDRS_EQUAL(a, b) \
+    (strncmp((char *) (a).ether_addr_octet, (char *) (b).ether_addr_octet, \
+             ETH_ALEN) == 0)
 
 // Whenever you add more command-line options, update MAX_OPTIONS accordingly
 #define MAX_OPTIONS 4
@@ -50,16 +55,14 @@ int wui_sock;
 
 pthread_mutex_t agn_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// TODO add a hash table (find library or make it yourself)
 struct agent *agents[AGN_MAX_AGENTS];
-
-// TODO+ implemented it using hash table (find library or make it yourself)
-void *agents_by_hash[AGN_MAX_AGENTS];
 
 int agn_alloc[AGN_MAX_AGENTS];  // 0 for free, 1 for allocated
 
-// Cache for TCP SYN packets to suspended agents
-// TODO+ replace void * to the actual type
-void *agn_syn_packets[AGN_MAX_AGENTS];
+//
+// TODO implement SYN forwarding
+//
 
 static void
 get_commandline_options(int argc, char **argv);
@@ -77,7 +80,7 @@ static int
 agn_listen(const char *ifname, int port);
 
 static void *
-agn_accept(void *sock);
+agn_accept(void *fd);
 
 static void *
 agn_read(void *conn);
@@ -94,8 +97,17 @@ agn_monitor_network(void *);
 static int
 wui_listen(const char *sock_file);
 
+static void  // not thread-safe
+wui_accept_and_read(int fd);
+
 static void
-wui_accept_and_read(int sock);
+respond(int fd, int status, char *char_buf, struct response *resp_buf);
+
+static void  // not to be called without mutex locked
+resume(struct agent *);
+
+static void  // not to be called without mutex locked
+suspend(struct agent *);
 
 int
 main()
@@ -184,7 +196,7 @@ cleanup()
     // Since it is exiting,
     // I guess I don't have to close the socket explicitly...
     //
-    //if (wui_sock >= 0 && close(wui_sock) < 0)
+    //if (wui_sock >= 0 && close(wui_sock))
     //    syslog(LOG_ERR, "can't close the socket: %m");
     if (unlink(pid_file) && errno != ENOENT)
         syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
@@ -230,7 +242,7 @@ agn_listen(const char *ifname, int port)
 }
 
 static void *
-agn_accept(void *sock)
+agn_accept(void *fd)
 {
     struct sockaddr_in addr;
     socklen_t addr_len;
@@ -240,20 +252,22 @@ agn_accept(void *sock)
 
     while (1) {
         addr_len = sizeof(addr);
-        conn = accept((int) sock, (struct sockaddr *) &addr, &addr_len);
+        conn = accept((int) fd, (struct sockaddr *) &addr, &addr_len);
         if (conn < 0) {
             syslog(LOG_WARNING, "(agn) can't accept: %m");
             continue;
         }
         index = agn_find_empty_slot();
         if (index < 0) {
-            syslog(LOG_ERR, "(agn) maximum agents limit (%d) exceeded; "
-                            "closing the new connection", AGN_MAX_AGENTS);
-            goto error;
+            syslog(LOG_NOTICE, "(agn) maximum agents limit (%d) exceeded",
+                               AGN_MAX_AGENTS);
+            goto cleanup;
         }
         a = agents[index] = (struct agent *) calloc(1, sizeof(struct agent));
-        if (a == NULL)
-            goto malloc_error;
+        if (a == NULL) {
+            syslog(LOG_ERR, "(agn) can't allocate memory: %m");
+            goto cleanup;
+        }
         a->fd = (int) conn;
         a->state = UP;
         a->ip = addr.sin_addr;
@@ -263,19 +277,17 @@ agn_accept(void *sock)
         a->sleep_time = 0;
         err = pthread_create(&tid, NULL, agn_read, (void *) index);
         if (err) {
-            syslog(LOG_ERR, "(agn) can't create a thread: %s; "
-                            "closing the connection", strerror(err));
-            goto error;
+            syslog(LOG_WARNING, "(agn) can't create a thread: %s",
+                                strerror(err));
+            goto cleanup;
         }
         continue;
-    malloc_error:
-        syslog(LOG_ERR, "(agn) can't allocate memory: %m");
-        goto error;
-    error:
+    cleanup:
         if (a != NULL)
             free(a);
         if (index >= 0)
             agn_return_slot(index);
+        syslog(LOG_WARNING, "(agn) closing the new connection");
         if (close(conn))
             syslog(LOG_WARNING, "(agn) can't close the connection: %m");
     }
@@ -286,20 +298,59 @@ static void *
 agn_read(void *index)
 {
     struct agent *a = agents[(int) index];
-    char buffer[MAX_REQUEST_LEN];
+
+    char req_buf[MAX_REQUEST_LEN];
+    char resp_buf[MAX_RESPONSE_LEN];
+    struct request req;
+    struct response resp;
+
+    char *c;
     int n;
 
-    while ((n = read(a->fd, buffer, sizeof(buffer))) > 0) {
-        //
-        // TODO+1
-        // catch the sleep signal
-        //
-        // simply echo for now
-        if (write(a->fd, buffer, n) != n) {
-            syslog(LOG_WARNING, "(agn) can't write: %m");
+    while ((n = read(a->fd, req_buf, sizeof(req_buf) - 1)) > 0) {
+        req_buf[n] = 0;
+        if (parse_request(req_buf, &req)) {
+            syslog(LOG_NOTICE, "(agn) invalid request");
+            respond(a->fd, 400, resp_buf, &resp);
             break;
         }
+        switch (req.method) {
+        case INFO:
+            if (!req.has_data) {
+                syslog(LOG_NOTICE, "(agn) INFO without data");
+                respond(a->fd, 400, resp_buf, &resp);
+                goto cleanup;
+            }
+            c = strchr(req.data, '\n');
+
+            // no newline or more than one newline = malformed data
+            if (c == NULL || strchr(c + 1, '\n') != NULL) {
+                syslog(LOG_NOTICE, "(agn) malformed INFO data");
+                respond(a->fd, 400, resp_buf, &resp);
+                goto cleanup;
+            }
+
+            *c = 0;
+            strcpy(a->hostname, req.data);
+            if (ether_aton_r(c + 1, &a->mac) == NULL) {
+                syslog(LOG_NOTICE, "(agn) malformed INFO data");
+                respond(a->fd, 400, resp_buf, &resp);
+                goto cleanup;
+            }
+            break;
+        case NTFY:
+            //
+            // TODO+
+            //
+            syslog(LOG_DEBUG, "(agn) NTFY");
+            break;
+        default:
+            respond(a->fd, 501, resp_buf, &resp);
+            goto cleanup;
+        }
     }
+cleanup:
+    syslog(LOG_NOTICE, "(agn) closing the connection");
     if (close(a->fd))
         syslog(LOG_WARNING, "(agn) can't close the connection: %m");
     free(a);
@@ -377,48 +428,137 @@ wui_listen(const char *sock_file)
 }
 
 static void
-wui_accept_and_read(int sock)
+wui_accept_and_read(int fd)
 {
-    static char buffer[MAX_REQUEST_LEN];
+    static char req_buf[MAX_REQUEST_LEN];
+    static char resp_buf[MAX_RESPONSE_LEN];
     static struct request req;
+    static struct response resp;
 
     struct sockaddr_un addr;
     socklen_t addr_len;
-    int conn, n;
+    int conn, n, i;
+
+    struct ether_addr mac;
+    struct agent *a;
 
     while (1) {
         addr_len = sizeof(addr);
-        conn = accept(sock, (struct sockaddr *) &addr, &addr_len);
+        conn = accept(fd, (struct sockaddr *) &addr, &addr_len);
         if (conn < 0) {
             syslog(LOG_WARNING, "(wui) can't accept: %m");
             continue;
         }
-        while ((n = read(conn, buffer, sizeof(buffer))) > 0) {
-            //
-            // TODO+0
-            // read the request from the web UI and respond accordingly;
-            // requests:
-            //   "RSUM <deviceId>\n": resume the device
-            //   "SUSP <deviceId>\n": suspend the device
-            //   "GETA\n": send the agent list to the web UI
-            // responses (for simple methods, RSUM and SUSP):
-            //   "200 OK\n"
-            //   "404 Device Not Found\n"
-            // response for GETA:
-            //   "200 OK\n"
-            //   "\n"
-            //   "<hostname>, <ip-address>, <mac-address>, ...\n"
-            //   ...
-            //   "\n"  # empty line means the end of the list
-            //
-            // simply echo for now
-            //
-            if (write(conn, buffer, n) != n) {
-                syslog(LOG_WARNING, "(wui) can't write: %m");
+        while ((n = read(conn, req_buf, sizeof(req_buf) - 1)) > 0) {
+            req_buf[n] = 0;
+            if (parse_request(req_buf, &req)) {
+                syslog(LOG_NOTICE, "(wui) invalid request");
+                respond(conn, 400, resp_buf, &resp);
+                break;
+            }
+            switch (req.method) {
+            case RSUM:
+            case SUSP:
+                if (ether_aton_r(req.uri, &mac) == NULL) {
+                    syslog(LOG_NOTICE, "(wui) invalid URI: %s", req.uri);
+                    respond(conn, 400, resp_buf, &resp);
+                    break;
+                }
+                // Find the agent
+                pthread_mutex_lock(&agn_mutex);
+                for (i = 0; i < AGN_MAX_AGENTS; ++i) {
+                    if (agn_alloc[i] == 0)
+                        continue;
+                    a = agents[i];
+                    syslog(LOG_DEBUG, "(wui) probe");
+                    if (ETHER_ADDRS_EQUAL(a->mac, mac)) {
+                        if (req.method == RSUM)
+                            if (a->state == UP || a->state == RESUMING)
+                                respond(conn, 409, resp_buf, &resp);
+                            else {
+                                resume(a);
+                                respond(conn, 200, resp_buf, &resp);
+                            }
+                        else  // req.method == SUSP
+                            if (a->state == SUSPENDED)
+                                respond(conn, 409, resp_buf, &resp);
+                            else {
+                                suspend(a);
+                                respond(conn, 200, resp_buf, &resp);
+                            }
+                        break;
+                    }
+                }
+                pthread_mutex_unlock(&agn_mutex);
+                if (i == AGN_MAX_AGENTS)
+                    respond(conn, 404, resp_buf, &resp);
+                break; 
+            case GETA:
+                //
+                // TODO+0
+                //
+                // response for GETA:
+                //   "200 OK\n"
+                //   "\n"
+                //   "<hostname>, <ip-address>, <mac-address>, ...\n"
+                //   ...
+                //   "\n"  # empty line means the end of the list
+                //
+                // simply echo for now
+                //
+                if (write(conn, req_buf, n) != n)
+                    syslog(LOG_WARNING, "(wui) can't write: %m");
+                break;
+            default:
+                respond(conn, 501, resp_buf, &resp);
                 break;
             }
         }
+        if (n == -1)
+            syslog(LOG_WARNING, "(wui) can't read: %m");
         if (close(conn))
             syslog(LOG_WARNING, "(wui) can't close the connection: %m");
     }
+}
+
+static void
+respond(int fd, int status, char *char_buf, struct response *resp_buf)
+{
+    int len;
+    const char *msg = "";
+
+    switch (status) {
+    case 200: msg = "OK"; break;
+    case 400: msg = "Bad Request"; break;
+    case 404: msg = "Not Found"; break;
+    case 409: msg = "Conflict"; break;
+    case 501: msg = "Not Implemented"; break;
+    default: abort(); break;
+    }
+    resp_buf->status = status;
+    strcpy(resp_buf->message, msg);
+    resp_buf->has_data = 0;
+    len = serialize_response(resp_buf, char_buf);
+    if (len < 0)
+        syslog(LOG_WARNING, "(wui) serialize_response failed");
+    if (write(fd, char_buf, len) != len)
+        syslog(LOG_WARNING, "(wui) can't write: %m");
+}
+
+static void
+resume(struct agent *a)
+{
+    //
+    // TODO+
+    //
+    syslog(LOG_DEBUG, "resume(): a->fd=%d", a->fd);
+}
+
+static void
+suspend(struct agent *a)
+{
+    //
+    // TODO+
+    //
+    syslog(LOG_DEBUG, "suspend(): a->fd=%d", a->fd);
 }
