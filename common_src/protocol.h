@@ -15,8 +15,9 @@
  * A request consists of a method, a URI, and data. The serialized form is
  * "<method>[ <uri>]\n[\n<data>\n\n]".
  *
- * The following list describes implemented methods in the protocol. Unless
- * otherwise noted, the only possible response status code is 200 (OK).
+ * The following list describes implemented methods in the protocol. Note that
+ * 200 (OK) and 400 (Bad Request) can be a response status code to any
+ * request.
  *
  * - GETA:
  *   Get a list of all devices.
@@ -58,6 +59,9 @@ struct request {
  *
  * - 200 OK:
  *   Standard response for successful requests.
+ * - 400 Bad Request:
+ *   The request could not be understood by the server due to malformed
+ *   syntax.
  * - 404 Not Found:
  *   The requested URI does not represent a resource, such as a device.
  * - 409 Conflict:
@@ -90,7 +94,8 @@ parse_response(const char *, struct response *);
 /**
  * Serialize the request into the character buffer.
  *
- * Return 0 on success, -1 on error.
+ * Return the number of written characters (not including the null character)
+ * on success, -1 on error.
  */
 int
 serialize_request(const struct request *, char *);
@@ -98,7 +103,8 @@ serialize_request(const struct request *, char *);
 /**
  * Serialize the response into the character buffer.
  *
- * Return 0 on success, -1 on error.
+ * Return the number of written characters (not including the null character)
+ * on success, -1 on error.
  */
 int
 serialize_response(const struct response *, char *);

@@ -127,7 +127,7 @@ serialize_request(const struct request *req, char *str)
         str[i] = '\n'; i += 1;
     }
     str[i] = 0;
-    return 0;
+    return i;
 }
 
 int
@@ -155,5 +155,5 @@ serialize_response(const struct response *resp, char *str)
         str[i] = '\n'; i += 1;
     }
     str[i] = 0;
-    return 0;
+    return i;
 }
