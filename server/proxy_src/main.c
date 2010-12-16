@@ -51,7 +51,8 @@ main()
     size_t addr_len;
 
     if (geteuid() != 0) {
-        fprintf(stderr, "must be run as root or setuid root");
+        fprintf(stderr, "%s: must be run as root or setuid root\n",
+            program_invocation_short_name);
         exit(1);
     }
 

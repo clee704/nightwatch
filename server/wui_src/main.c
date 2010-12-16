@@ -138,7 +138,8 @@ main(int argc, char **argv) {
     const char *mg_options[MAX_OPTIONS * 2 + 1];
 
     if (geteuid() != 0) {
-        fprintf(stderr, "must be run as root or setuid root");
+        fprintf(stderr, "%s: must be run as root or setuid root\n",
+            program_invocation_short_name);
         exit(1);
     }
 
