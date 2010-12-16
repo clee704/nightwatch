@@ -36,8 +36,7 @@
 #define DEFAULT_PID_FILE "/var/run/nitch-proxyd.pid"
 
 // Options that are not configurable by the user
-// backlog sizes for listen()
-#define AGN_MAX_AGENTS 1
+#define AGN_MAX_AGENTS 64
 #define AGN_BACKLOG 100
 #define WUI_BACKLOG 10
 
@@ -47,9 +46,19 @@ const char *wui_sock_file;
 int agn_sock;
 int wui_sock;
 
+pthread_mutex_t agn_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 struct agent *agents[AGN_MAX_AGENTS];
-int agents_alloc[AGN_MAX_AGENTS];  // 0 for free, 1 for allocated
-pthread_mutex_t agents_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// TODO+ implemented it using hash table (find library or make it yourself)
+// hash key: MAC address
+void *agents_by_hash[AGN_MAX_AGENTS];
+
+int agn_alloc[AGN_MAX_AGENTS];  // 0 for free, 1 for allocated
+
+// Cache for TCP SYN packets to suspended agents
+// TODO+ replace void * to the actual type
+void *agn_syn_packets[AGN_MAX_AGENTS];
 
 static void
 get_commandline_options(int argc, char **argv);
@@ -77,6 +86,9 @@ agn_find_slot(void);
 
 static void
 agn_free_slot(int index);
+
+static void *
+agn_monitor_network(void *);
 
 static int
 wui_listen(const char *sock_file);
@@ -130,6 +142,13 @@ main()
         exit(2);
     }
 
+    // Monitor the network for SYN packets to suspended agents
+    err = pthread_create(&tid, NULL, agn_monitor_network, 0);
+    if (err != 0) {
+        syslog(LOG_ERR, "can't create a thread: %s", strerror(err));
+        exit(2);
+    }
+
     // The main thread deals with the web UI
     wui_sock = wui_listen(wui_sock_file);
     if (wui_sock < 0) {
@@ -173,9 +192,9 @@ cleanup()
 }
 
 static void
-sigterm(int signum)
+sigterm(int unused)
 {
-    (void) signum;  // unused
+    (void) unused;
     syslog(LOG_INFO, "got SIGTERM; exiting");
     cleanup();
     exit(2);
@@ -261,7 +280,8 @@ agn_new_connection(void *conn)
     a->sleep_time = 0;
     while ((n = read(a->fd, buffer, sizeof(buffer))) > 0) {
         //
-        // TODO+ impl
+        // TODO+
+        // catch the sleep signal
         //
         // simply echo for now
         if (write(a->fd, buffer, n) != n) {
@@ -283,23 +303,37 @@ agn_find_slot()
 {
     int i, ret = -1;
 
-    pthread_mutex_lock(&agents_mutex);
+    pthread_mutex_lock(&agn_mutex);
     for (i = 0; i < AGN_MAX_AGENTS; ++i)
-        if (agents_alloc[i] == 0) {
-            agents_alloc[i] = 1;
+        if (agn_alloc[i] == 0) {
+            agn_alloc[i] = 1;
             ret = i;
             break;
         }
-    pthread_mutex_unlock(&agents_mutex);
+    pthread_mutex_unlock(&agn_mutex);
     return ret;
 }
 
 static void
 agn_free_slot(int index)
 {
-    pthread_mutex_lock(&agents_mutex);
-    agents_alloc[index] = 0;
-    pthread_mutex_unlock(&agents_mutex);
+    pthread_mutex_lock(&agn_mutex);
+    agn_alloc[index] = 0;
+    pthread_mutex_unlock(&agn_mutex);
+}
+
+static void *
+agn_monitor_network(void *unsued)
+{
+    (void) unused;
+    //
+    // TODO+
+    // monitor the network
+    // if the IP address of a SYN packet matches,
+    //   resume the agent
+    //   forward the SYN packet to the agent
+    //
+    return (void *) 0;
 }
 
 static int
@@ -350,9 +384,24 @@ wui_accept(int sock)
         }
         while ((n = read(conn, buffer, sizeof(buffer))) > 0) {
             //
-            // TODO+ impl
+            // TODO+
+            // read the request from the web UI and respond accordingly;
+            // requests:
+            //   "RSUM <deviceId>\n": resume the device
+            //   "SUSP <deviceId>\n": suspend the device
+            //   "GETA\n": send the agent list to the web UI
+            // responses (for simple methods, RSUM and SUSP):
+            //   "200 OK\n"
+            //   "404 Device Not Found\n"
+            // response for GETA:
+            //   "200 OK\n"
+            //   "\n"
+            //   "<hostname>, <ip-address>, <mac-address>, ...\n"
+            //   ...
+            //   "\n"  # empty line means the end of the list
             //
             // simply echo for now
+            //
             if (write(conn, buffer, n) != n) {
                 syslog(LOG_WARNING, "(wui) can't write: %m");
                 break;
