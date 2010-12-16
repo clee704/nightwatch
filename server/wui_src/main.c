@@ -30,7 +30,7 @@
 const char *pid_file;   // filename of the pid file
 const char *sock_file;  // filename for the proxy's socket to connect
 
-static const char *ajax_reply_start =
+static const char * const ajax_reply_start =
     "HTTP/1.1 200 OK\r\n"
     "Cache: no-cache\r\n"
     "Content-Type: application/json\r\n"
@@ -320,7 +320,7 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
     }
 
     //
-    // TODO implement ajax calls
+    // TODO impl
     //
 
     // Close the connection to the proxy
@@ -336,7 +336,7 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
                    const struct mg_request_info *request_info,
                    const char *method)
 {
-    char buffer[100] = {0};
+    char buffer[48] = {0};
     char device_id[24] = {0};
     int sock, n;
 
@@ -417,13 +417,14 @@ connect_to(const char *sock_file)
 {
     int sock, n;
     struct sockaddr_un addr;
-    size_t addr_len;
+    socklen_t addr_len;
 
+    memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
     n = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sock_file);
     if (n < 0 || (int) sizeof(addr.sun_path) < n)
         return -1;
-    addr_len = offsetof(struct sockaddr_un, sun_path) + (size_t) n;
+    addr_len = offsetof(struct sockaddr_un, sun_path) + (socklen_t) n;
 
     sock = socket(PF_UNIX, SOCK_STREAM, 0);
     if (sock < 0)
