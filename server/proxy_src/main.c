@@ -83,10 +83,10 @@ static void *
 agn_read(void *conn);
 
 static int
-agn_find_slot(void);
+agn_find_empty_slot(void);
 
 static void
-agn_free_slot(int index);
+agn_return_slot(int index);
 
 static void *
 agn_monitor_network(void *);
@@ -95,7 +95,7 @@ static int
 wui_listen(const char *sock_file);
 
 static void
-wui_accept(int sock);
+wui_accept_and_read(int sock);
 
 int
 main()
@@ -156,7 +156,7 @@ main()
         syslog(LOG_ERR, "can't listen on %s: %m", wui_sock_file);
         exit(2);
     }
-    wui_accept(wui_sock);
+    wui_accept_and_read(wui_sock);
 
     return 0;
 }
@@ -245,7 +245,7 @@ agn_accept(void *sock)
             syslog(LOG_WARNING, "(agn) can't accept: %m");
             continue;
         }
-        index = agn_find_slot();
+        index = agn_find_empty_slot();
         if (index < 0) {
             syslog(LOG_ERR, "(agn) maximum agents limit (%d) exceeded; "
                             "closing the new connection", AGN_MAX_AGENTS);
@@ -280,7 +280,7 @@ agn_accept(void *sock)
         if (a != NULL)
             free(a);
         if (index >= 0)
-            agn_free_slot(index);
+            agn_return_slot(index);
         if (close(conn) < 0)
             syslog(LOG_WARNING, "(agn) can't close the connection: %m");
     }
@@ -308,12 +308,12 @@ agn_read(void *index)
     if (close(a->fd) < 0)
         syslog(LOG_WARNING, "(agn) can't close the connection: %m");
     free(a);
-    agn_free_slot((int) index);
+    agn_return_slot((int) index);
     return (void *) 0;
 }
 
 static int
-agn_find_slot()
+agn_find_empty_slot()
 {
     int i, ret = -1;
 
@@ -329,7 +329,7 @@ agn_find_slot()
 }
 
 static void
-agn_free_slot(int index)
+agn_return_slot(int index)
 {
     pthread_mutex_lock(&agn_mutex);
     agn_alloc[index] = 0;
@@ -382,7 +382,7 @@ wui_listen(const char *sock_file)
 }
 
 static void
-wui_accept(int sock)
+wui_accept_and_read(int sock)
 {
     static char buffer[64];
     struct sockaddr_un addr;
