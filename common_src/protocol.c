@@ -41,7 +41,7 @@ parse_request(const char *str, struct request *req)
         strncpy(req->uri, str + 5, p);
         req->uri[p] = 0;
         req->has_uri = 1;
-        if (n == i)  // no data
+        if (n == i + 1)  // no data
             return 0;
     }
     if (str[i + 1] != '\n' || str[n - 2] != '\n' || str[n - 1] != '\n')
@@ -81,7 +81,7 @@ parse_response(const char *str, struct response *resp)
     strncpy(resp->message, str + 4, p);
     resp->message[p] = 0;
     resp->has_data = 0;
-    if (n == i)  // no data
+    if (n == i + 1)  // no data
         return 0;
     if (str[i + 1] != '\n' || str[n - 2] != '\n' || str[n - 1] != '\n')
         return -1;
