@@ -19,14 +19,14 @@
 #include "daemon.h"
 
 #define MAX_OPTIONS 5
-#define DEFAULT_SOCKET "/var/run/nitch-proxyd.sock"
-#define DEFAULT_PID_FILE "/var/run/nitch-httpd.pid"
 #define DEFAULT_DOCUMENT_ROOT "/var/lib/nitch-httpd"
 #define DEFAULT_LISTENING_PORTS "8080"
 #define DEFAULT_ERROR_LOG_FILE "/var/log/nitch-httpd.err"
+#define DEFAULT_PID_FILE "/var/run/nitch-httpd.pid"
+#define DEFAULT_SOCKET "/var/run/nitch-proxyd.sock"
 
-const char *sock_file;  // filename for the proxy's socket to connect
 const char *pid_file;   // filename of the pid file
+const char *sock_file;  // filename for the proxy's socket to connect
 
 static const char *ajax_reply_start =
     "HTTP/1.1 200 OK\r\n"
@@ -36,7 +36,7 @@ static const char *ajax_reply_start =
 
 static void
 get_commandline_options(int argc, char **argv, const char **mg_options,
-                        const char **sock_file, const char **pid_file);
+                        const char **pid_file, const char **sock_file);
 
 static void
 display_help_and_exit(void);
@@ -144,7 +144,7 @@ main(int argc, char **argv) {
     }
 
     // Parse the command line options
-    get_commandline_options(argc, argv, mg_options, &sock_file, &pid_file);
+    get_commandline_options(argc, argv, mg_options, &pid_file, &sock_file);
 
     // Make the process a daemon
     daemonize(program_invocation_short_name);
@@ -173,15 +173,15 @@ main(int argc, char **argv) {
 
 static void
 get_commandline_options(int argc, char **argv, const char **mg_options,
-                        const char **sock_file, const char **pid_file)
+                        const char **pid_file, const char **sock_file)
 {
     static const char *short_options = "s:p:d:l:e:h";
     static struct option long_options[] = {
-        {"socket", required_argument, 0, 's'},
-        {"pid-file", required_argument, 0, 'p'},
         {"document-root", required_argument, 0, 'd'},
         {"listening-ports", required_argument, 0, 'l'},
         {"error-log-file", required_argument, 0, 'e'},
+        {"pid-file", required_argument, 0, 'p'},
+        {"socket", required_argument, 0, 's'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
@@ -190,8 +190,8 @@ get_commandline_options(int argc, char **argv, const char **mg_options,
     const char *error_log_file = DEFAULT_ERROR_LOG_FILE;
     int c, i;
 
-    *sock_file = DEFAULT_SOCKET;
     *pid_file = DEFAULT_PID_FILE;
+    *sock_file = DEFAULT_SOCKET;
 
     // Get arguments
     while (1) {
@@ -200,11 +200,11 @@ get_commandline_options(int argc, char **argv, const char **mg_options,
         if (c == -1)  // end of the options
             break;
         switch (c) {
-        case 's': *sock_file = optarg; break;
-        case 'p': *pid_file = optarg; break;
         case 'd': document_root = optarg; break;
         case 'l': listening_ports = optarg; break;
         case 'e': error_log_file = optarg; break;
+        case 'p': *pid_file = optarg; break;
+        case 's': *sock_file = optarg; break;
         case 'h': display_help_and_exit(); break;
         case '?':
             // getopt_long already printed an error message
@@ -231,21 +231,21 @@ display_help_and_exit()
     printf("Usage: %s [option]...\n"
         "\n"
         "Options:\n"
-        "  -s, --socket=FILE              locate nitch-proxyd's socket file\n"
-        "                                   (defaults to %s)\n"
-        "  -p, --pid-file=FILE            set the PID file\n"
-        "                                   (defaults to %s)\n"
         "  -d, --document-root=DIRECTORY  set the document root\n"
         "                                   (defaults to %s)\n"
         "  -l, --listening-ports=PORTS    set the listening ports\n"
         "                                   (defaults to %s)\n"
         "  -e, --error-log-file=FILE      set the error log file\n"
         "                                   (defaults to %s)\n"
+        "  -p, --pid-file=FILE            set the PID file\n"
+        "                                   (defaults to %s)\n"
+        "  -s, --socket=FILE              locate nitch-proxyd's socket file\n"
+        "                                   (defaults to %s)\n"
         "  -h, --help                     display this help and exit\n"
         "\n",
-        program_invocation_short_name, DEFAULT_SOCKET, DEFAULT_PID_FILE,
-        DEFAULT_DOCUMENT_ROOT, DEFAULT_LISTENING_PORTS,
-        DEFAULT_ERROR_LOG_FILE);
+        program_invocation_short_name, DEFAULT_DOCUMENT_ROOT,
+        DEFAULT_LISTENING_PORTS, DEFAULT_ERROR_LOG_FILE, DEFAULT_PID_FILE,
+        DEFAULT_SOCKET);
     exit(0);
 }
 
