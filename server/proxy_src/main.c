@@ -39,6 +39,9 @@ static void
 handle_connections(int sock, struct sockaddr_un *, size_t *);
 
 static void
+cleanup(void);
+
+static void
 sigterm(int signo);
 
 int
@@ -61,14 +64,20 @@ main()
     // Make the process a daemon
     daemonize(program_invocation_short_name);
 
-    sock = bind_and_listen(sock_file, &addr, &addr_len);
-
     if (write_pid(pid_file) < 0)
         syslog(LOG_WARNING, "can't write PID file to %s: %m", pid_file);
     if (setuid(getuid()) < 0)
         syslog(LOG_WARNING, "can't drop the root privileges: %m");
+    if (atexit(cleanup))
+        syslog(LOG_WARNING, "atexit() failed: %m");
     if (register_signal_handler(SIGTERM, sigterm) < 0)
         syslog(LOG_WARNING, "can't catch SIGTERM: %m");
+
+    sock = bind_and_listen(sock_file, &addr, &addr_len);
+    if (sock < 0) {
+        syslog(LOG_ERR, "can't bind and listen on %s: %m", sock_file);
+        exit(2);
+    }
     handle_connections(sock, &addr, &addr_len);
 
     return 0;
@@ -79,33 +88,26 @@ bind_and_listen(const char *sock_file, struct sockaddr_un *addr, size_t *addr_le
 {
     int sock, n;
 
-    sock = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (sock < 0) {
-        syslog(LOG_ERR, "can't create a socket: %m");
-        exit(1);
-    }
+    if (unlink(sock_file) < 0 && errno != ENOENT)
+        return -1;
 
-    if (unlink(sock_file) < 0 && errno != ENOENT) {
-        syslog(LOG_ERR, "can't unlink %s: %m", sock_file);
-        exit(1);
-    }
     addr->sun_family = AF_UNIX;
     n = snprintf(addr->sun_path, sizeof(addr->sun_path), "%s", sock_file);
-    if (n < 0 || (int) sizeof(addr->sun_path) < n) {
-        syslog(LOG_ERR, "socket path too long");
-        exit(1);
-    }
+    if (n < 0 || (int) sizeof(addr->sun_path) < n)
+        return -1;
     *addr_len = offsetof(struct sockaddr_un, sun_path) + (size_t) n;
 
+    sock = socket(PF_UNIX, SOCK_STREAM, 0);
+    if (sock < 0)
+        return -1;
     if (bind(sock, (struct sockaddr *) addr, *addr_len) < 0) {
-        syslog(LOG_ERR, "can't bind the socket %s: %m", sock_file);
-        exit(1);
+        close(sock);
+        return -1;
     }
     if (listen(sock, QLEN) < 0) {
-        syslog(LOG_ERR, "can't listen on the socket %s: %m", sock_file);
-        exit(1);
+        close(sock);
+        return -1;
     }
-
     return sock;
 }
 
@@ -119,7 +121,7 @@ handle_connections(int sock, struct sockaddr_un *addr, size_t *addr_len)
         conn = accept(sock, (struct sockaddr *) addr, addr_len);
         if (conn < 0) {
             syslog(LOG_WARNING, "can't accept: %m");
-            continue;  // ...?
+            continue;  // may be unappropriate
         }
         while ((n = read(conn, buffer, sizeof(buffer))) > 0) {
             //
@@ -137,15 +139,25 @@ handle_connections(int sock, struct sockaddr_un *addr, size_t *addr_len)
 }
 
 static void
+cleanup()
+{
+    // close(sock) makes an error "Bad file descriptor" (I don't know why)
+    // Since it is exiting,
+    // I guess I don't have to close the socket explicitly...
+    //
+    //if (sock >= 0 && close(sock) < 0)
+    //    syslog(LOG_ERR, "can't close the socket: %m");
+    if (unlink(sock_file) < 0 && errno != ENOENT)
+        syslog(LOG_ERR, "can't unlink %s: %m", sock_file);
+    if (unlink(pid_file) < 0 && errno != ENOENT)
+        syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
+}
+
+static void
 sigterm(int signum)
 {
     (void) signum;  // unused
     syslog(LOG_INFO, "got SIGTERM; exiting");
-    if (close(sock) < 0)
-        syslog(LOG_ERR, "can't close the socket: %m");
-    if (unlink(sock_file) < 0)
-        syslog(LOG_ERR, "can't unlink %s: %m", sock_file);
-    if (unlink(pid_file) < 0)
-        syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
+    cleanup();
     exit(2);
 }
