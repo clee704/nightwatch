@@ -18,7 +18,7 @@
 #include "mongoose.h"
 #include "daemon.h"
 
-#define MAX_OPTIONS 4
+#define MAX_OPTIONS 5
 #define DEFAULT_SOCKET "/var/run/nitch-proxyd.sock"
 #define DEFAULT_PID_FILE "/var/run/nitch-httpd.pid"
 #define DEFAULT_DOCUMENT_ROOT "/var/lib/nitch-httpd"
