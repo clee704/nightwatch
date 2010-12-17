@@ -172,29 +172,31 @@ sleep_listener(void *socketfd)
 	struct sockaddr_un my_addr, reporter_addr;
 	int my_sockfd, reporter_sockfd;
 
-	//use unix domain socket
-	if((my_sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
-		syslog(LOG_ERR, "socket open error");
+	while(1){
+		//use unix domain socket
+		if((my_sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
+			syslog(LOG_ERR, "socket open error");
+		}
+		bzero(&my_addr, sizeof(my_addr));
+		my_addr.sun_family = AF_UNIX;
+		strcpy(my_addr.sun_path, "/tmp/nitchsocket");
+
+		unlink(my_addr.sun_path);
+		if(bind(my_sockfd, (struct sockaddr *)&my_addr, sizeof(my_addr)) < 0){
+			syslog(LOG_ERR, "socket bind error");
+		}
+		syslog(LOG_DEBUG, "listening on /tmp/nitchsocket");
+		listen(my_sockfd, 5);
+
+		//if anyone connect to socket file,
+		//	we accept and assume this is sleeping condition
+		int clilen = sizeof(reporter_addr);
+		reporter_sockfd = accept(my_sockfd, (struct sockaddr *)&reporter_addr, &clilen);
+
+		syslog(LOG_NOTICE, "got sleep signal. send notification message to server");
+		write(server_socket, "NTFY\n", 5);
+		
+		close(reporter_sockfd);
+		close(my_sockfd);
 	}
-	bzero(&my_addr, sizeof(my_addr));
-	my_addr.sun_family = AF_UNIX;
-	strcpy(my_addr.sun_path, "/tmp/nitchsocket");
-
-	unlink(my_addr.sun_path);
-	if(bind(my_sockfd, (struct sockaddr *)&my_addr, sizeof(my_addr)) < 0){
-		syslog(LOG_ERR, "socket bind error");
-	}
-	syslog(LOG_DEBUG, "listening on /tmp/nitchsocket");
-	listen(my_sockfd, 5);
-
-	//if anyone connect to socket file,
-	//	we accept and assume this is sleeping condition
-	int clilen = sizeof(reporter_addr);
-	reporter_sockfd = accept(my_sockfd, (struct sockaddr *)&reporter_addr, &clilen);
-
-	syslog(LOG_NOTICE, "got sleep signal. send notification message to server");
-	write(server_socket, "NTFY\n", 5);
-	
-	close(reporter_sockfd);
-	close(my_sockfd);
 }
