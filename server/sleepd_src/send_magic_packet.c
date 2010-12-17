@@ -14,19 +14,17 @@
 
 #include "send_magic_packet.h"
 
-static int
-build_packet(const unsigned char *dst_addr_octet,
-             const unsigned char *src_addr_octet,
-             unsigned char *packet);
+static int build_packet(const u_int8_t *dst_addr_octet,
+                        const u_int8_t *src_addr_octet,
+                        unsigned char *packet);
 
-int
-send_magic_packet(const char *dst_addr_str, const char *ifname_in)
+int send_magic_packet(const struct ether_addr *dst_addr, const char *ifname_in)
 {
+    const char *ifname = ifname_in == NULL ? "eth0" : ifname_in;
+    struct ether_addr src_addr;
     int sock;
     struct sockaddr_ll dst_sockaddr;
-    struct ether_addr dst_addr, src_addr, *addrp;
-    const char *ifname = ifname_in == NULL ? "eth0" : ifname_in;
-    unsigned char *packet;
+    unsigned char packet[200];
     int packet_sz;
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
@@ -37,12 +35,6 @@ send_magic_packet(const char *dst_addr_str, const char *ifname_in)
     if (setuid(getuid()) < 0)
         return -1;
 
-    // Convert the destination address
-    addrp = ether_aton(dst_addr_str);
-    if (addrp == NULL)
-        return -1;
-    dst_addr = *addrp;
-
     // Get the source address from the interface name
     {
         struct ifreq ifr;
@@ -52,14 +44,6 @@ send_magic_packet(const char *dst_addr_str, const char *ifname_in)
             return -1;
         memcpy(src_addr.ether_addr_octet, ifr.ifr_hwaddr.sa_data, 6);
     }
-
-    // Build the magic packet
-    packet = (unsigned char *) malloc(200);
-    if (packet == NULL)
-        return -1;
-    packet_sz = build_packet(dst_addr.ether_addr_octet,
-                             src_addr.ether_addr_octet,
-                             packet);
 
     // Make dst_sockaddr for sendto()
     {
@@ -73,23 +57,24 @@ send_magic_packet(const char *dst_addr_str, const char *ifname_in)
         dst_sockaddr.sll_family = AF_PACKET;
         dst_sockaddr.sll_ifindex = ifr.ifr_ifindex;
         dst_sockaddr.sll_halen = 6;
-        memcpy(dst_sockaddr.sll_addr, dst_addr.ether_addr_octet, 6);
+        memcpy(dst_sockaddr.sll_addr, dst_addr->ether_addr_octet, 6);
     }
 
-    // Finally, send the packet!
-    if (sendto(sock, packet, packet_sz, 0, (struct sockaddr *) &dst_sockaddr,
-               sizeof(dst_sockaddr)) < 0)
-        return -1;
+    packet_sz = build_packet(dst_addr->ether_addr_octet,
+                             src_addr.ether_addr_octet,
+                             packet);
 
-    free(packet);
+    // Finally, send the packet!
+    if (sendto(sock, packet, packet_sz, 0,
+               (struct sockaddr *) &dst_sockaddr, sizeof(dst_sockaddr)) < 0)
+        return -1;
 
     return 0;
 }
 
-static int
-build_packet(const unsigned char *dst_addr_octet,
-             const unsigned char *src_addr_octet,
-             unsigned char *packet)
+static int build_packet(const u_int8_t *dst_addr_octet,
+                        const u_int8_t *src_addr_octet,
+                        unsigned char *packet)
 {
     int offset, i;
 
