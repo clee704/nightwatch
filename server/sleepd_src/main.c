@@ -20,20 +20,16 @@
 #include <getopt.h>
 #include <netinet/ether.h>
 
-#include "agent.h"
 #include "send_magic_packet.h"
+#include "agent.h"
 #include "daemon.h"
+#include "network.h"
 #include "protocol.h"
-
-#define ETHER_ADDRS_EQUAL(a, b) \
-    (strncmp((char *) (a).ether_addr_octet, (char *) (b).ether_addr_octet, \
-             ETH_ALEN) == 0)
 
 // Whenever you add more command-line options, update MAX_OPTIONS accordingly
 #define MAX_OPTIONS 4
 
 // Options for the agents
-#define DEFAULT_AGN_IF "eth0"
 #define DEFAULT_AGN_PORT 4444
 
 // Option for the web UI
@@ -64,58 +60,31 @@ int agn_alloc[AGN_MAX_AGENTS];  // 0 for free, 1 for allocated
 // TODO implement SYN forwarding
 //
 
-static void
-get_commandline_options(int argc, char **argv);
+static void get_commandline_options(int argc, char **argv);
+static void display_help_and_exit(void);
+static void cleanup(void);
+static void sigterm(int signum);
 
-static void
-display_help_and_exit(void);
+static int agn_listen(int port);
+static void *agn_accept(void *fd);
+static void *agn_read(void *conn);
+static int agn_find_empty_slot(void);
+static void agn_return_slot(int index);
+static void *agn_monitor_network(void *);
 
-static void
-cleanup(void);
+static int wui_listen(const char *sock_file);
+static void wui_accept_and_read(int fd);  // not thread-safe
 
-static void
-sigterm(int signum);
+static void request(int fd, int method,
+                    char *char_buf, struct request *req_buf);
+static void respond(int fd, int status,
+                    char *char_buf, struct response *resp_buf);
 
-static int
-agn_listen(const char *ifname, int port);
+static void resume(struct agent *);
+static void suspend(struct agent *);
 
-static void *
-agn_accept(void *fd);
-
-static void *
-agn_read(void *conn);
-
-static int
-agn_find_empty_slot(void);
-
-static void
-agn_return_slot(int index);
-
-static void *
-agn_monitor_network(void *);
-
-static int
-wui_listen(const char *sock_file);
-
-static void  // not thread-safe
-wui_accept_and_read(int fd);
-
-static void
-request(int fd, int method, char *char_buf, struct request *req_buf);
-
-static void
-respond(int fd, int status, char *char_buf, struct response *resp_buf);
-
-static void  // not to be called without mutex locked
-resume(struct agent *);
-
-static void  // not to be called without mutex locked
-suspend(struct agent *);
-
-int
-main()
+int main()
 {
-    const char *agn_if;
     int agn_port;
     pthread_t tid;
     int err;
@@ -129,7 +98,6 @@ main()
     //
     // TODO use getopt
     //
-    agn_if = DEFAULT_AGN_IF;
     agn_port = DEFAULT_AGN_PORT;
     wui_sock_file = DEFAULT_WUI_SOCKET;
     pid_file = DEFAULT_PID_FILE;
@@ -147,9 +115,9 @@ main()
         syslog(LOG_WARNING, "can't catch SIGTERM: %m");
 
     // Handle connections from the agents
-    agn_sock = agn_listen(agn_if, agn_port);
+    agn_sock = agn_listen(agn_port);
     if (agn_sock < 0) {
-        syslog(LOG_ERR, "can't listen on %s port %d: %m", agn_if, agn_port);
+        syslog(LOG_ERR, "can't listen on port %d: %m", agn_port);
         exit(2);
     }
     err = pthread_create(&tid, NULL, agn_accept, (void *) agn_sock);
@@ -176,24 +144,21 @@ main()
     return 0;
 }
 
-static void
-get_commandline_options(int argc, char **argv)
+static void get_commandline_options(int argc, char **argv)
 {
     //
     // TODO
     //
 }
 
-static void
-display_help_and_exit()
+static void display_help_and_exit()
 {
     //
     // TODO
     //
 }
 
-static void
-cleanup()
+static void cleanup()
 {
     // close() makes an error "Bad file descriptor" (I don't know why)
     // Since it is exiting,
@@ -207,8 +172,7 @@ cleanup()
         syslog(LOG_ERR, "can't unlink %s: %m", wui_sock_file);
 }
 
-static void
-sigterm(int unused)
+static void sigterm(int unused)
 {
     (void) unused;
     syslog(LOG_INFO, "got SIGTERM; exiting");
@@ -216,36 +180,37 @@ sigterm(int unused)
     exit(2);
 }
 
-static int
-agn_listen(const char *ifname, int port)
+static int agn_listen(int port)
 {
     struct sockaddr_in addr;
-    int sock;
 
-    //
-    // TODO bind on the specified ifname
-    //
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
-
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0)
-        return -1;
-    if (bind(sock, (struct sockaddr *) &addr, sizeof(addr))) {
-        close(sock);
-        return -1;
-    }
-    if (listen(sock, AGN_BACKLOG)) {
-        close(sock);
-        return -1;
-    }
-    return sock;
+    return init_server(SOCK_STREAM, (struct sockaddr *) &addr, sizeof(addr),
+                       AGN_BACKLOG);
 }
 
-static void *
-agn_accept(void *fd)
+static int wui_listen(const char *sock_file)
+{
+    struct sockaddr_un addr;
+    socklen_t addr_len;
+    int n;
+
+    if (unlink(sock_file) && errno != ENOENT)
+        return -1;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = PF_UNIX;
+    n = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sock_file);
+    if (n < 0 || (int) sizeof(addr.sun_path) < n)
+        return -1;
+    addr_len = offsetof(struct sockaddr_un, sun_path) + (socklen_t) n;
+    return init_server(SOCK_STREAM, (struct sockaddr *) &addr, addr_len,
+                       WUI_BACKLOG);
+}
+
+static void *agn_accept(void *fd)
 {
     struct sockaddr_in addr;
     socklen_t addr_len;
@@ -399,37 +364,6 @@ agn_monitor_network(void *unused)
     return (void *) 0;
 }
 
-static int
-wui_listen(const char *sock_file)
-{
-    struct sockaddr_un addr;
-    socklen_t addr_len;
-    int sock, n;
-
-    if (unlink(sock_file) && errno != ENOENT)
-        return -1;
-
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    n = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sock_file);
-    if (n < 0 || (int) sizeof(addr.sun_path) < n)
-        return -1;
-    addr_len = offsetof(struct sockaddr_un, sun_path) + (socklen_t) n;
-
-    sock = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (sock < 0)
-        return -1;
-    if (bind(sock, (struct sockaddr *) &addr, addr_len)) {
-        close(sock);
-        return -1;
-    }
-    if (listen(sock, WUI_BACKLOG)) {
-        close(sock);
-        return -1;
-    }
-    return sock;
-}
-
 static void
 wui_accept_and_read(int fd)
 {
@@ -473,7 +407,8 @@ wui_accept_and_read(int fd)
                 for (i = 0; i < AGN_MAX_AGENTS; ++i) {
                     if (agn_alloc[i] == 0)
                         continue;
-                    if (ETHER_ADDRS_EQUAL((a = agents[i])->mac, mac))
+                    a = agents[i];
+                    if (ETH_ADDR_EQ(a->mac, mac))
                         break;
                 }
                 
@@ -529,7 +464,7 @@ request(int fd, int method, char *char_buf, struct request *req_buf)
     len = serialize_request(req_buf, char_buf);
     if (len < 0)
         syslog(LOG_WARNING, "serialize_request() failed");
-    if (write(fd, char_buf, len) != len)
+    if (write_string(fd, char_buf))
         syslog(LOG_WARNING, "can't write: %m");
 }
 
@@ -553,7 +488,7 @@ respond(int fd, int status, char *char_buf, struct response *resp_buf)
     len = serialize_response(resp_buf, char_buf);
     if (len < 0)
         syslog(LOG_WARNING, "serialize_response() failed");
-    if (write(fd, char_buf, len) != len)
+    if (write_string(fd, char_buf))
         syslog(LOG_WARNING, "can't write: %m");
 }
 

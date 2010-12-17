@@ -1,5 +1,5 @@
 target = nitch-sleepd
-sources = main.c send_magic_packet.c daemon.c protocol.c
+sources = main.c send_magic_packet.c daemon.c network.c protocol.c
 objects = $(sources:.c=.o)
 
 VPATH = ../../commons/src
@@ -12,11 +12,13 @@ all: $(target)
 $(target): $(objects)
 	$(CC) $(LDFLAGS) -o $@ $^ 
 
-main.o: main.c agent.h send_magic_packet.h daemon.h protocol.h
+main.o: main.c send_magic_packet.h agent.h daemon.h network.h protocol.h
 
 send_magic_packet.o: send_magic_packet.c send_magic_packet.h
 
 daemon.o: daemon.c daemon.h
+
+network.o: network.c network.h
 
 protocol.o: protocol.c protocol.h
 
