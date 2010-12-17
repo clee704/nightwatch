@@ -1,10 +1,10 @@
 target = nitch-httpd
-sources = main.c mongoose/mongoose.c common/daemon.c common/protocol.c
+sources = main.c mongoose.c daemon.c protocol.c
 objects = $(sources:.c=.o)
 
-VPATH = mongoose common
+VPATH = mongoose ../../commons/src
 CC = gcc
-CFLAGS = -W -Wall -O2 -Imongoose -Icommon
+CFLAGS = -W -Wall -O2 -Imongoose -I../../commons/src
 LDFLAGS = -ldl -pthread
 
 all: $(target)
@@ -14,11 +14,11 @@ $(target): $(objects)
 
 main.o: main.c daemon.h protocol.h mongoose.h
 
-mongoose/mongoose.o: mongoose.c mongoose.h
+mongoose.o: mongoose.c mongoose.h
 
-common/daemon.o: daemon.c daemon.h
+daemon.o: daemon.c daemon.h
 
-common/protocol.o: protocol.c protocol.h
+protocol.o: protocol.c protocol.h
 
 clean:
 	rm -f $(target) $(objects)
