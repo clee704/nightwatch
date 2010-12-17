@@ -18,8 +18,7 @@
 #include "daemon.h"
 
 // This is based on code originally by Richard Stevens APUE
-void
-daemonize(const char *cmd)
+void daemonize(const char *cmd)
 {
     pid_t pid;
     struct rlimit rl;
@@ -76,10 +75,10 @@ daemonize(const char *cmd)
         syslog(LOG_ERR, "unexpected file descriptors %d %d %d", fd0, fd1, fd2);
         exit(1);
     }
+    syslog(LOG_INFO, "daemon initialized");
 }
 
-int
-write_pid(const char *filename)
+int write_pid(const char *filename)
 {
     static char buffer[512];
     FILE *fp;
@@ -100,8 +99,7 @@ write_pid(const char *filename)
     return 0;
 }
 
-int
-register_signal_handler(int signum, void handler(int))
+int register_signal_handler(int signum, void (*handler)(int))
 {
     struct sigaction sa;
 
