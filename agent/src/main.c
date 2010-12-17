@@ -38,14 +38,6 @@ main (int argc, char **argv)
 
 	read_config();
 
-	//make thread to listen sleeping signal and handle proxy server command
-	if( pthread_create(&p_thread[0], NULL, sleep_listener, (void*)server_socket)){
-		syslog(LOG_ERR, "daemon can't make thread");
-	}
-	if ( pthread_create(&p_thread[1], NULL, request_handler, (void*)server_socket)){
-		syslog(LOG_ERR, "daemon can't make thread");
-	}
-
 	int i;
 	for(i = 0 ; i < connection_retry_num &&
 			((server_socket = make_connect(server_ip, server_port)) < 0); i++) {
@@ -56,6 +48,15 @@ main (int argc, char **argv)
 		syslog(LOG_ERR, "connection fail");
 		exit(EXIT_FAILURE);
 	}
+
+	//make thread to listen sleeping signal and handle proxy server command
+	if( pthread_create(&p_thread[0], NULL, sleep_listener, (void*)server_socket)){
+		syslog(LOG_ERR, "daemon can't make thread");
+	}
+	if ( pthread_create(&p_thread[1], NULL, request_handler, (void*)server_socket)){
+		syslog(LOG_ERR, "daemon can't make thread");
+	}
+
 
 	// send host information
 	send_host_info(server_socket);
@@ -76,8 +77,10 @@ request_handler(void *socket)
 	syslog(LOG_DEBUG, "start request handler");
 	char buf[100];
 	int server_socket = (int)socket;
+	syslog(LOG_DEBUG, "%d", server_socket);
 	while(1){
 		read(server_socket, buf, 100);
+		syslog(LOG_DEBUG, "received message : %s", buf);
 		if(strncmp(buf, "SUSP\n", 5) == 0){
 			send_ok(server_socket);
 			go_to_sleep();
