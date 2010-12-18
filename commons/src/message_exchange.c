@@ -27,8 +27,11 @@ void respond(int fd, int status, struct message_buffer *buf)
     switch (status) {
     case 200: msg = "OK"; break;
     case 400: msg = "Bad Request"; break;
+    case 402: msg = "Payment Required"; break;
     case 404: msg = "Not Found"; break;
     case 409: msg = "Conflict"; break;
+    case 418: msg = "Unexpected Method"; break;
+    case 500: msg = "Internal Server Error"; break;
     case 501: msg = "Not Implemented"; break;
     default:
         syslog(LOG_WARNING, "[message_exchange] invalid status %d", status);

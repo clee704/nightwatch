@@ -72,10 +72,9 @@ static void cleanup()
 
 static void sigterm(int unused)
 {
-    (void) unused;
     syslog(LOG_INFO, "got SIGTERM");
-    cleanup();
     exit(2);
+    unused = unused;
 }
 
 static void exit_if_not_root(const char *progname)
@@ -90,8 +89,6 @@ static void init(const char *pid_file)
 {
     if (write_pid(pid_file))
         syslog(LOG_WARNING, "can't write PID file to %s: %m", pid_file);
-    if (setuid(getuid()))
-        syslog(LOG_WARNING, "can't drop the root privileges: %m");
     if (atexit(cleanup))
         syslog(LOG_WARNING, "atexit() failed: %m");
     if (register_signal_handler(SIGTERM, sigterm))

@@ -8,7 +8,7 @@
 #endif
 
 struct message_buffer {
-    char chars[MAX(MAX_REQUEST_LEN, MAX_RESPONSE_LEN)];
+    char chars[MAX(MAX_REQUEST_STRLEN, MAX_RESPONSE_STRLEN)];
     union {
         struct request request;
         struct response response;

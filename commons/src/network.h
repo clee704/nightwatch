@@ -15,10 +15,28 @@
              (char *) (b).ether_addr_octet, \
              ETH_ALEN) == 0)
 
+struct sockaddr_un;
+
 /**
  * TODO documentate
  */
 int init_server(int type, const struct sockaddr *, socklen_t alen, int qlen);
+
+/**
+ * TODO documentate
+ */
+int connect_to(int type, const struct sockaddr *, socklen_t alen);
+
+/**
+ * TODO documentate
+ */
+void set_sockaddr_in(struct sockaddr_in *,
+                     short family, unsigned short port, unsigned long addr);
+
+/**
+ * TODO documentate
+ */
+int set_sockaddr_un(struct sockaddr_un *, const char *path);
 
 /**
  * TODO documentate

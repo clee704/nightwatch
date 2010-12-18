@@ -29,10 +29,6 @@ int send_magic_packet(const struct ether_addr *dst_addr, const char *ifname_in)
     if (sock < 0)
         return -1;
 
-    // Drop root privileges if the executable is suid root
-    if (setuid(getuid()) < 0)
-        return -1;
-
     // Get the source address from the interface name
     {
         struct ifreq ifr;

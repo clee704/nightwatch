@@ -8,8 +8,8 @@
 
 // Maximum lengths of requests and responses in the serialized form
 // Lengths includes the null caracter
-#define MAX_REQUEST_LEN (MAX_URI_LEN + MAX_DATA_LEN + 8)
-#define MAX_RESPONSE_LEN (MAX_MESSAGE_LEN + MAX_DATA_LEN + 7)
+#define MAX_REQUEST_STRLEN (MAX_URI_LEN + MAX_DATA_LEN + 8)
+#define MAX_RESPONSE_STRLEN (MAX_MESSAGE_LEN + MAX_DATA_LEN + 7)
 
 /**
  * A request consists of a method, a URI, and data. The serialized form is
@@ -52,7 +52,7 @@ struct request {
  * A response consists of a status code, a message, and data. The serialized
  * form is "<status code> <message>\n[\n<data>\n]".
  *
- * The following is a list of status codes and corresponding messages. They
+ * The following is a list of status codes and corresponding messages. Some
  * are borrowed from the HTTP status code definitions.
  *
  * - 200 OK:
@@ -60,6 +60,8 @@ struct request {
  * - 400 Bad Request:
  *     The request could not be understood by the server due to malformed
  *     syntax.
+ * - 402 Payment Required:
+ *     The request must have data.
  * - 404 Not Found:
  *     The server has not found anything matching the Request-URI.
  * - 409 Conflict:
@@ -67,6 +69,8 @@ struct request {
  *     state of the resource. If this is a response to RSUM, it means the
  *     device is already up or resuming. To SUSP, it means the device is
  *     already suspended.
+ * - 418 Unexpected Method:
+ *     The request method is not allowed in the current state of the server.
  * - 500 Internal Server Error:
  *     The server encountered an unexpected condition which prevented it from
  *     fulfilling the request.

@@ -21,7 +21,7 @@ struct agent {
 };
 
 struct _agent_list_node {
-    struct agent agent;
+    struct agent *agent;
     struct _agent_list_node *next;
 };
 
@@ -34,6 +34,20 @@ struct agent_list {
 struct agent_list_iterator {
     struct _agent_list_node *next;
 };
+
+/**
+ * TODO documentate
+ */
+void lock_agent(struct agent *);
+
+/**
+ * TODO documentate
+ */
+void unlock_agent(struct agent *);
+
+/**
+ * TODO documentate
+ */
 
 /**
  * TODO documentate

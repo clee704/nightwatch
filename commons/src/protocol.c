@@ -8,7 +8,7 @@ int parse_request(const char *str, struct request *req)
     size_t i, n, p;
 
     n = strlen(str);
-    if (n > MAX_REQUEST_LEN - 1)
+    if (n > MAX_REQUEST_STRLEN - 1)
         return -1;
     if (strncmp(str, "GETA", 4) == 0)
         req->method = GETA;
@@ -58,7 +58,7 @@ int parse_response(const char *str, struct response *resp)
     int status;
 
     n = strlen(str);
-    if (n > MAX_RESPONSE_LEN - 1)
+    if (n > MAX_RESPONSE_STRLEN - 1)
         return -1;
     if (sscanf(str, "%d", &status) != 1)
         return -1;

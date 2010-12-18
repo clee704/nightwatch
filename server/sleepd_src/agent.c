@@ -6,6 +6,16 @@
 #include "agent.h"
 #include "network.h"
 
+void lock_agent(struct agent *agent)
+{
+    pthread_mutex_lock(&agent->mutex);
+} 
+
+void unlock_agent(struct agent *agent)
+{
+    pthread_mutex_unlock(&agent->mutex);
+}
+
 struct agent_list *new_agent_list()
 {
     struct agent_list *list;
@@ -35,8 +45,8 @@ struct agent *find_agent_by_ip(struct agent_list *list,
     struct _agent_list_node *node;
 
     for (node = list->head->next; node != NULL; node = node->next)
-        if (IN_ADDR_EQ(node->agent.ip, *ip)) {
-            agent = &node->agent;
+        if (IN_ADDR_EQ(node->agent->ip, *ip)) {
+            agent = node->agent;
             break;
         }
     return agent;
@@ -49,8 +59,8 @@ struct agent *find_agent_by_mac(struct agent_list *list,
     struct _agent_list_node *node;
 
     for (node = list->head->next; node != NULL; node = node->next)
-        if (ETHER_ADDR_EQ(node->agent.mac, *mac)) {
-            agent = &node->agent;
+        if (ETHER_ADDR_EQ(node->agent->mac, *mac)) {
+            agent = node->agent;
             break;
         }
     return agent;
@@ -65,7 +75,7 @@ int add_new_agent(struct agent_list *list, const struct agent *agent)
         syslog(LOG_WARNING, "[agent] can't allocate memory: %m");
         return -1;
     }
-    node->agent = *agent;
+    node->agent = agent;
     node->next = NULL;
     list->tail->next = node;
     list->tail = node;
@@ -100,6 +110,6 @@ struct agent *next_agent(struct agent_list_iterator *iter)
         return NULL;
     else {
         iter->next = next->next;
-        return &next->agent;
+        return next->agent;
     }
 }
