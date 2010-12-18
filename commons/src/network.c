@@ -5,9 +5,12 @@
 int init_server(int type, const struct sockaddr *addr, socklen_t alen, int qlen)
 {
     int fd = socket(addr->sa_family, type, 0);
+    int reuse = 1;
 
     if (fd < 0)
         return -1;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)))
+        goto error;
     if (bind(fd, addr, alen))
         goto error;
     if ((type == SOCK_STREAM || type == SOCK_SEQPACKET) && listen(fd, qlen))

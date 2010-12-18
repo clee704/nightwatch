@@ -3,8 +3,7 @@
 
 #include "protocol.h"
 
-int
-parse_request(const char *str, struct request *req)
+int parse_request(const char *str, struct request *req)
 {
     size_t i, n, p;
 
@@ -44,17 +43,16 @@ parse_request(const char *str, struct request *req)
         if (n == i + 1)  // no data
             return 0;
     }
-    if (str[i + 1] != '\n' || str[n - 2] != '\n' || str[n - 1] != '\n')
+    if (str[i + 1] != '\n' || str[n - 1] != '\n')
         return -1;
-    p = n - i - 4;
+    p = n - i - 3;
     strncpy(req->data, str + i + 2, p);
     req->data[p] = 0;
     req->has_data = 1;
     return 0;
 }
 
-int
-parse_response(const char *str, struct response *resp)
+int parse_response(const char *str, struct response *resp)
 {
     size_t n, i, p;
     int status;
@@ -83,17 +81,16 @@ parse_response(const char *str, struct response *resp)
     resp->has_data = 0;
     if (n == i + 1)  // no data
         return 0;
-    if (str[i + 1] != '\n' || str[n - 2] != '\n' || str[n - 1] != '\n')
+    if (str[i + 1] != '\n' || str[n - 1] != '\n')
         return -1;
-    p = n - i - 4;
+    p = n - i - 3;
     strncpy(resp->data, str + i + 2, p);
     resp->data[p] = 0;
     resp->has_data = 1;
     return 0;
 }
 
-int
-serialize_request(const struct request *req, char *str)
+int serialize_request(const struct request *req, char *str)
 {
     const char *m;
     size_t i, ulen, dlen;
@@ -124,14 +121,12 @@ serialize_request(const struct request *req, char *str)
             return -1;
         strncpy(str + i, req->data, dlen); i += dlen;
         str[i] = '\n'; i += 1;
-        str[i] = '\n'; i += 1;
     }
     str[i] = 0;
     return i;
 }
 
-int
-serialize_response(const struct response *resp, char *str)
+int serialize_response(const struct response *resp, char *str)
 {
     size_t i, mlen, dlen;
 
@@ -151,7 +146,6 @@ serialize_response(const struct response *resp, char *str)
         if (dlen > MAX_DATA_LEN - 1)
             return -1;
         strncpy(str + i, resp->data, dlen); i += dlen;
-        str[i] = '\n'; i += 1;
         str[i] = '\n'; i += 1;
     }
     str[i] = 0;

@@ -1,28 +1,46 @@
 target = nitch-sleepd
-sources = main.c send_magic_packet.c daemon.c network.c protocol.c
+sources = main.c agent.c agent_handler.c ui_handler.c packet_monitor.c \
+  send_magic_packet.c daemon.c network.c protocol.c message_exchange.c
 objects = $(sources:.c=.o)
 
 VPATH = ../../commons/src
 CC = gcc
-CFLAGS = -W -Wall -O2 -I../../commons/src
+CFLAGS = -W -Wall -O2 -D_REENTRANT -I../../commons/src
 LDFLAGS = -pthread
 
 all: $(target)
-
 $(target): $(objects)
 	$(CC) $(LDFLAGS) -o $@ $^ 
 
-main.o: main.c send_magic_packet.h agent.h daemon.h network.h protocol.h
-
-send_magic_packet.o: send_magic_packet.c send_magic_packet.h
-
-daemon.o: daemon.c daemon.h
-
-network.o: network.c network.h
-
-protocol.o: protocol.c protocol.h
-
 clean:
 	rm -f $(target) $(objects)
+
+main.o: %.o: %.c \
+  agent.h agent_handler.h ui_handler.h packet_monitor.h daemon.h
+
+agent.o: %.o: %.c %.h
+
+agent_handler.o: %.o: %.c %.h \
+  agent.h network.h protocol.h message_exchange.h
+
+ui_handler.o: %.o: %.c %.h \
+  agent.h network.h protocol.h message_exchange.h
+
+packet_monitor.o: %.o: %.c %.h \
+  agent.h
+
+send_magic_packet.o: %.o: %.c %.h
+
+#
+# common objects
+#
+daemon.o: %.o: %.c %.h
+
+network.o: %.o: %.c %.h
+
+protocol.o: %.o: %.c %.h
+
+message_exchange.o: %.o: %.c %.h \
+  network.h protocol.h
 
 .PHONY: all clean

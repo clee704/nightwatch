@@ -13,7 +13,7 @@
 
 /**
  * A request consists of a method, a URI, and data. The serialized form is
- * "<method>[ <uri>]\n[\n<data>\n\n]".
+ * "<method>[ <uri>]\n[\n<data>\n]".
  *
  * The following list describes implemented methods in the protocol. Note that
  * 200 (OK) and 400 (Bad Request) can be a response status code to any
@@ -53,7 +53,7 @@ struct request {
 
 /**
  * A response consists of a status code, a message, and data. The serialized
- * form is "<status code> <message>\n[\n<data>\n\n]".
+ * form is "<status code> <message>\n[\n<data>\n]".
  *
  * The following is a list of status codes and corresponding messages.
  *
@@ -80,16 +80,14 @@ struct response {
  *
  * Return 0 on success, -1 on error.
  */
-int
-parse_request(const char *, struct request *);
+int parse_request(const char *, struct request *);
 
 /**
  * Parse the serialized response into the response structure.
  *
  * Return 0 on success, -1 on error.
  */
-int
-parse_response(const char *, struct response *);
+int parse_response(const char *, struct response *);
 
 /**
  * Serialize the request into the character buffer.
@@ -97,8 +95,7 @@ parse_response(const char *, struct response *);
  * Return the number of written characters (not including the null character)
  * on success, -1 on error.
  */
-int
-serialize_request(const struct request *, char *);
+int serialize_request(const struct request *, char *);
 
 /**
  * Serialize the response into the character buffer.
@@ -106,7 +103,6 @@ serialize_request(const struct request *, char *);
  * Return the number of written characters (not including the null character)
  * on success, -1 on error.
  */
-int
-serialize_response(const struct response *, char *);
+int serialize_response(const struct response *, char *);
 
 #endif /* PROTOCOL_H */

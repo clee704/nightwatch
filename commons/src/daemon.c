@@ -72,10 +72,11 @@ void daemonize(const char *cmd)
     // Initialize the log file
     openlog(cmd, LOG_CONS, LOG_DAEMON);
     if (fd0 != 0 || fd1 != 1 || fd2 != 2) {
-        syslog(LOG_ERR, "unexpected file descriptors %d %d %d", fd0, fd1, fd2);
+        syslog(LOG_ERR,
+               "[daemon] unexpected file descriptors %d %d %d", fd0, fd1, fd2);
         exit(1);
     }
-    syslog(LOG_INFO, "daemon initialized");
+    syslog(LOG_INFO, "[daemon] initialized");
 }
 
 int write_pid(const char *filename)
