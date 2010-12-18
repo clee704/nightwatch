@@ -5,21 +5,21 @@
 #include "network.h"
 #include "protocol.h"
 
-void request(int fd, int method, struct request *req, char *buf)
+void request(int fd, int method, struct message_buffer *buf)
 {
     int len;
 
-    req->method = method;
-    req->has_uri = 0;
-    req->has_data = 0;
-    len = serialize_request(req, buf);
+    buf->u.request.method = method;
+    buf->u.request.has_uri = 0;
+    buf->u.request.has_data = 0;
+    len = serialize_request(&buf->u.request, buf->chars);
     if (len < 0)
         syslog(LOG_WARNING, "[message_exchange] serialize_request() failed");
-    if (write_string(fd, buf))
-        syslog(LOG_WARNING, "[message_exchange] can't write: %m");
+    if (write_string(fd, buf->chars))
+        syslog(LOG_WARNING, "[message_exchange] write() failed: %m");
 }
 
-void respond(int fd, int status, struct response *resp, char *buf)
+void respond(int fd, int status, struct message_buffer *buf)
 {
     int len;
     const char *msg = "";
@@ -34,12 +34,12 @@ void respond(int fd, int status, struct response *resp, char *buf)
         syslog(LOG_WARNING, "[message_exchange] invalid status %d", status);
         return;
     }
-    resp->status = status;
-    strcpy(resp->message, msg);
-    resp->has_data = 0;
-    len = serialize_response(resp, buf);
+    buf->u.response.status = status;
+    strcpy(buf->u.response.message, msg);
+    buf->u.response.has_data = 0;
+    len = serialize_response(&buf->u.response, buf->chars);
     if (len < 0)
         syslog(LOG_WARNING, "[message_exchange] serialize_response() failed");
-    if (write_string(fd, buf))
-        syslog(LOG_WARNING, "[message_exchange] can't write: %m");
+    if (write_string(fd, buf->chars))
+        syslog(LOG_WARNING, "[message_exchange] write() failed: %m");
 }

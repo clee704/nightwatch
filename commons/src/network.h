@@ -2,10 +2,15 @@
 #define NETWORK_H
 
 #include <string.h>
+
+#include <netinet/in.h>
 #include <sys/socket.h>
+
 #include <netinet/ether.h>
 
-#define ETH_ADDR_EQ(a, b) \
+#define IN_ADDR_EQ(a, b) ((a).s_addr == (b).s_addr)
+
+#define ETHER_ADDR_EQ(a, b) \
     (strncmp((char *) (a).ether_addr_octet, \
              (char *) (b).ether_addr_octet, \
              ETH_ALEN) == 0)

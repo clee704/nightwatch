@@ -13,7 +13,8 @@
 #include "protocol.h"
 #include "message_exchange.h"
 
-#define BACKLOG_SIZE 32
+#define BACKLOG_SIZE 64
+#define MAX_AGENTS 32
 
 static void *accept_agents(void *agent_list);
 /*static void *read(void *conn);

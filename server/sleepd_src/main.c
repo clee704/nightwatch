@@ -19,7 +19,6 @@
 #define DEFAULT_PID_FILE "/var/run/nitch-sleepd.pid"
 #define DEFAULT_SOCK_FILE "/var/run/nitch-sleepd.sock"
 #define DEFAULT_PORT 4444
-#define MAX_AGENTS 32
 
 static void get_commandline_options(int argc, char **argv,
                                     const char **, const char **, int *);
@@ -68,12 +67,13 @@ static void cleanup()
         syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
     if (unlink(sock_file) && errno != ENOENT)
         syslog(LOG_ERR, "can't unlink %s: %m", sock_file);
+    syslog(LOG_INFO, "exit");
 }
 
 static void sigterm(int unused)
 {
     (void) unused;
-    syslog(LOG_INFO, "got SIGTERM; exiting");
+    syslog(LOG_INFO, "got SIGTERM");
     cleanup();
     exit(2);
 }
@@ -103,14 +103,25 @@ static void start(int port, const char *sock_file)
     struct agent_list *list;
     pthread_t tid1, tid2, tid3;
 
-    list = new_agent_list(MAX_AGENTS);
-    if (start_agent_handler(&tid1, list, port)
-            || start_ui_handler(&tid2, list, sock_file)
-            || start_packet_monitor(&tid3, list))
+    list = new_agent_list();
+    if (list == NULL) {
+        syslog(LOG_ERR, "can't create an agent list");
         exit(2);
-    if (pthread_join(tid1, NULL)
-            || pthread_join(tid2, NULL)
-            || pthread_join(tid3, NULL))
-        syslog(LOG_WARNING, "can't join a thread: %m");
+    }
+    if (start_agent_handler(&tid1, list, port)) {
+        syslog(LOG_ERR, "can't start the agent handler");
+        exit(2);
+    }
+    if (start_ui_handler(&tid2, list, sock_file)) {
+        syslog(LOG_ERR, "can't start the UI handler");
+        exit(2);
+    }
+    if (start_packet_monitor(&tid3, list)) {
+        syslog(LOG_ERR, "can't start the packet monitor");
+        exit(2);
+    }
+    pthread_join(tid1, NULL);
+    pthread_join(tid2, NULL);
+    pthread_join(tid3, NULL);
     syslog(LOG_WARNING, "all thread terminated");  // should not happen
 }

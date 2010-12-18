@@ -11,16 +11,19 @@
 
 #include "ui_handler.h"
 #include "agent.h"
+#include "send_magic_packet.h"
 #include "network.h"
 #include "protocol.h"
 #include "message_exchange.h"
-
-#define max(a, b) ((a) > (b) ? (a) : (b))
 
 #define BACKLOG_SIZE 16
 
 static void *accept_ui(void *agent_list);
 static void handle_requests(int fd, struct agent_list *);
+static int resume_agent(struct agent_list *, const struct ether_addr *,
+                        struct message_buffer *);
+static int suspend_agent(struct agent_list *, const struct ether_addr *,
+                         struct message_buffer *);
 
 static int sock;
 
@@ -86,43 +89,92 @@ static void *accept_ui(void *agent_list)
 
 static void handle_requests(int fd, struct agent_list *list)
 {
-    char buffer[max(MAX_REQUEST_LEN, MAX_RESPONSE_LEN)];
-    struct request req;
-    struct response resp;
+    struct message_buffer buf;
     struct ether_addr mac;
-    int n;
+    int n, status;
 
-    while ((n = read(fd, buffer, sizeof(buffer) - 1)) > 0) {
-        buffer[n] = 0;
-        if (parse_request(buffer, &req)) {
+    while ((n = read(fd, buf.chars, sizeof(buf.chars) - 1)) > 0) {
+        buf.chars[n] = 0;
+        if (parse_request(buf.chars, &buf.u.request)) {
             syslog(LOG_NOTICE, "[ui_handler] invalid request");
-            respond(fd, 400, &resp, buffer);
+            respond(fd, 400, &buf);
             continue;
         }
-        switch (req.method) {
+        switch (buf.u.request.method) {
         case RSUM:
         case SUSP:
-            if (ether_aton_r(req.uri, &mac) == NULL) {
+            if (ether_aton_r(buf.u.request.uri, &mac) == NULL) {
                 syslog(LOG_NOTICE,
-                       "[ui_handler] invalid URI: %s (not a MAC address)",
-                       req.uri);
-                respond(fd, 400, &resp, buffer);
+                       "[ui_handler] URI not a MAC address: %s",
+                       buf.u.request.uri);
+                respond(fd, 404, &buf);
                 break;
             }
-            if (req.method == RSUM)
-                resume_agent(list, &mac);
-            else // req.method == SUSP
-                suspend_agent(list, &mac);
+            if (buf.u.request.method == RSUM)
+                status = resume_agent(list, &mac, &buf);
+            else // req.method == SUSP 
+                status = suspend_agent(list, &mac, &buf);
+            respond(fd, status, &buf);
             break; 
         case GETA:
             // TODO impl
-            respond(fd, 200, &resp, buffer);
+            respond(fd, 200, &buf);
             break;
         default:
-            respond(fd, 501, &resp, buffer);
+            respond(fd, 501, &buf);
             break;
         }
     }
     if (n == -1)
-        syslog(LOG_WARNING, "[ui_handler] can't read: %m");
+        syslog(LOG_WARNING, "[ui_handler] read() failed: %m");
+    else if (n == 0)
+        syslog(LOG_WARNING, "[ui_handler] unexpected EOF");
+}
+
+static int resume_agent(struct agent_list *list, const struct ether_addr *mac,
+                        struct message_buffer *buf)
+{
+    struct agent *agent;
+
+    agent = find_agent_by_mac(list, mac);
+    if (agent == NULL)
+        return 404;
+    if (agent->state == UP || agent->state == RESUMING)
+        return 409;
+    // resume!
+    return 200;
+}
+
+static int suspend_agent(struct agent_list *list, const struct ether_addr *mac,
+                         struct message_buffer *buf)
+{
+    struct agent *agent;
+    int n;
+
+    agent = find_agent_by_mac(list, mac);
+    if (agent == NULL)
+        return 404;
+    if (agent->state == SUSPENDED)
+        return 409;
+    request(agent->fd2, SUSP, buf);
+    n =  read(agent->fd2, buf->chars, sizeof(buf->chars) - 1);
+    if (n <= 0) {
+        if (n < 0)
+            syslog(LOG_WARNING, "[ui_handler] read() failed: %m");
+        else
+            syslog(LOG_WARNING, "[ui_handler] unexpected EOF");
+        return 500;
+    }
+    buf->chars[n] = 0;
+    if (parse_response(buf->chars, &buf->u.response)) {
+        syslog(LOG_NOTICE, "[ui_handler] invalid response");
+        return 500;
+    }
+    switch (buf->u.response.status) {
+    case 200:
+        return 200;
+    default:
+        syslog(LOG_NOTICE, "[ui_handler] got %d", buf->u.response.status);
+        return 500;
+    }
 }
