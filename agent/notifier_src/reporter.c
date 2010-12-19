@@ -13,6 +13,7 @@ main(int argc, char **argv){
 	int reporter_fd;
 
 	struct sockaddr_un reporter_addr;
+	syslog(LOG_DEBUG, "sleep is detected");
 
 	if((reporter_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
 		syslog(LOG_ERR, "reporter socket open error");
@@ -22,7 +23,7 @@ main(int argc, char **argv){
 	reporter_addr.sun_family = AF_UNIX;
 	strcpy(reporter_addr.sun_path, "/tmp/nitchsocket");
 	if(connect(reporter_fd, (struct sockaddr *)&reporter_addr, sizeof(reporter_addr))< 0){
-		syslog(LOG_CRIT, "reporter connection error");
+		syslog(LOG_CRIT, "reporter connection error %m");
 		return 0;
 	}
 	syslog(LOG_DEBUG, "connection estabilished");
