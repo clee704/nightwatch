@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <arpa/inet.h>
 #include <net/if.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -10,86 +11,38 @@
 #include <netpacket/packet.h>
 #include <sys/ioctl.h>
 
-#include <arpa/inet.h>
-
 #include "poison.h"
 
-void printChar(char *s, int len) {
-	int i;
-	for(i=0;i<len;i++)
-	{
-		if(i>0 && i % 8 == 0)
-			printf("\n");
-		printf("%2x ",s[i] & 0xff);
-	}
-	printf("\n");
-}
+#define ARP_PACKET_SIZE 42
 
+static size_t build_packet(struct in_addr *,
+                           struct ether_addr *,
+                           unsigned char *packet);
 
-static int
-build_packet(struct ether_addr *mac_addr,
-             struct in_addr *ip_addr,
-             unsigned char *packet)
+int send_poison_packet(const struct in_addr *ip,
+                       const struct ether_addr *mac_in,
+                       const char *ifname_in)
 {
-	int i=0;
-
-	memcpy(packet+i, "\xff\xff\xff\xff\xff\xff", 6);
-	i+=6;
-	memcpy(packet+i, mac_addr, 6);
-	i+=6;
-	memcpy(packet+i, "\x08\x06", 2);
-	i+=2;
-
-	memcpy(packet+i, "\x00\x01\x08\x00\x06\x04", 6);
-	i+=6;
-	memcpy(packet+i, "\x00\x02", 2);
-	i+=2;
-	
-	memcpy(packet+i, mac_addr, 6);
-	i+=6;
-	memcpy(packet+i, ip_addr, 4);
-	i+=4;
-	memcpy(packet+i, mac_addr, 6);
-	i+=6;
-	memcpy(packet+i, ip_addr, 4);
-	i+=4;
-	return i;
-}
-int
-send_poison_packet(struct in_addr *ip_addr, struct ether_addr *mac_addr, const char *ifname_in)
-{
+    const char *ifname = ifname_in == NULL ? "eth0" : ifname_in;
+    struct ether_addr mac;
     int sock;
     struct sockaddr_ll dst_sockaddr;
-    const char *ifname = ifname_in == NULL ? "eth0" : ifname_in;
-    unsigned char *packet;
-    int packet_sz;
+    unsigned char packet[ARP_PACKET_SIZE];
+    size_t packet_sz, i;
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
     if (sock < 0)
         return -1;
 
-    // Drop root privileges if the executable is suid root
-    if (setuid(getuid()) < 0)
-        return -1;
-
-	if(mac_addr == NULL) {
-		mac_addr = (struct ether_addr *)malloc(sizeof(struct ether_addr));
-
+    if (mac_in == NULL) {
+        // Get the MAC address from the interface name
         struct ifreq ifr;
-
         strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
         if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0)
             return -1;
-        memcpy(mac_addr, ifr.ifr_hwaddr.sa_data, 6);
-    }
-
-    // Build the magic packet
-    packet = (unsigned char *) malloc(200);
-    if (packet == NULL)
-        return -1;
-    packet_sz = build_packet(mac_addr,
-                             ip_addr,
-                             packet);
+        memcpy(mac.ether_addr_octet, ifr.ifr_hwaddr.sa_data, 6);
+    } else
+        mac = *mac_in;
 
     // Make dst_sockaddr for sendto()
     {
@@ -103,21 +56,36 @@ send_poison_packet(struct in_addr *ip_addr, struct ether_addr *mac_addr, const c
         dst_sockaddr.sll_family = AF_PACKET;
         dst_sockaddr.sll_ifindex = ifr.ifr_ifindex;
         dst_sockaddr.sll_halen = 6;
-        memcpy(dst_sockaddr.sll_addr, "\xff\xff\xff\xff\xff\xff" , 6);
+        memset(dst_sockaddr.sll_addr, '\xff', 6);
     }
 
-	printChar(packet, packet_sz);
+    packet_sz = build_packet(ip, &mac, packet);
 
-    // Finally, send the packet!
-	int i;
-	for(i=0;i<1;i++) {
-    if (sendto(sock, packet, packet_sz, 0, (struct sockaddr *) &dst_sockaddr,
-               sizeof(dst_sockaddr)) < 0)
+    if (sendto(sock, packet, packet_sz, 0,
+               (struct sockaddr *) &dst_sockaddr, sizeof(dst_sockaddr)) < 0)
         return -1;
-	}
-
-    free(packet);
 
     return 0;
 }
 
+static int build_packet(struct in_addr *ip,
+                        struct ether_addr *mac,
+                        unsigned char *packet)
+{
+    // Ethernet header
+    memcpy(packet + 0, "\xff\xff\xff\xff\xff\xff", 6);  // MAC destination
+    memcpy(packet + 6, mac, 6);                         // MAC source
+    memcpy(packet + 12, "\x08\x06", 2);                 // EtherType (ARP)
+
+    // Ethernet payload
+    memcpy(packet + 14, "\x00\x01", 2);  // Hardware type (1 for Ethernet)
+    memcpy(packet + 16, "\x08\x00", 2);  // Protocol type (0x0800 for IPv4)
+    packet[18] = '\x06';                 // Hardware address length
+    packet[19] = '\x04';                 // Protocol address length
+    memcpy(packet + 20, "\x00\x02", 2);  // Operation (2 for reply)
+    memcpy(packet + 22, mac, 6);  // Sender hardware address
+    memcpy(packet + 28, ip, 4);   // Sender protocol address
+    memcpy(packet + 32, mac, 6);  // Target hardware address
+    memcpy(packet + 38, ip, 4);   // Target protocol address
+    return 42;
+}
