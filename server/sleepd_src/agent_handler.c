@@ -37,8 +37,8 @@ static int read_info(int fd, struct message_buffer *,
 static void handle_new_agent(const struct in_conn *,
                              const char *hostname,
                              const struct ether_addr *);
-static void handle_existing_agent(const struct in_conn *, struct agent *);
-static void manage_agent(struct agent *);
+static void handle_registered_agent(const struct in_conn *, struct agent *);
+static void handle_requests(struct agent *);
 static void close_connection(int fd);
 static void close_connections_with_agent(struct agent *, int state);
 
@@ -104,9 +104,9 @@ static void assign_thread(struct in_conn conn)
     close_connection(conn.fd);
 }
 
-static void *handle_agent(void *conn_)
+static void *handle_agent(void *connection)
 {
-    const struct in_conn *conn = (struct in_conn *) conn_;
+    const struct in_conn *conn = (struct in_conn *) connection;
     int status;
     struct message_buffer buf;
     const char *hostname;
@@ -114,7 +114,7 @@ static void *handle_agent(void *conn_)
     struct agent *agent;
 
     status = read_info(conn->fd, &buf, &hostname, &mac);
-    respond(conn->fd, status, &buf);
+    send_respond(conn->fd, status, NULL, &buf);
     if (status != 200) {
         close_connection(conn->fd);
         return NULL;
@@ -124,8 +124,8 @@ static void *handle_agent(void *conn_)
         INFO("the connection (fd=%d) is from a new agent", conn->fd);
         handle_new_agent(conn, hostname, &mac);
     } else {
-        INFO("the connection (fd=%d) may be from an existing agent", conn->fd);
-        handle_existing_agent(conn, agent);
+        INFO("the connection (fd=%d) seems to be from an registered agent", conn->fd);
+        handle_registered_agent(conn, agent);
     }
     return NULL;
 }
@@ -145,7 +145,7 @@ static int read_info(int fd,
         WARNING("read() failed: %m");
         return 500;
     } else if (n == 0) {
-        WARNING("unexpected EOF while waiting for INFO request");
+        WARNING("unexpected EOF while waiting for a request");
         return 400;
     }
     chars[n] = 0;
@@ -216,10 +216,10 @@ static void handle_new_agent(const struct in_conn *conn,
     if (add_new_agent(list, agent))
         goto destroy_mutex;
 
-    manage_agent(agent);
+    handle_requests(agent);
 
     // should not reach here
-    ERROR("manage_agent() exits (it should not happen)");
+    ERROR("handle_requests() exits (it should not happen)");
     goto destroy_mutex;
 
 destroy_mutex:
@@ -236,8 +236,8 @@ close:
         free(agent);
 }
 
-static void handle_existing_agent(const struct in_conn *conn,
-                                  struct agent *agent)
+static void handle_registered_agent(const struct in_conn *conn,
+                                    struct agent *agent)
 {
     const struct agent *agent2;
     struct sockaddr_in sa;
@@ -287,7 +287,7 @@ close:
     unlock_agent(agent);
 }
 
-static void manage_agent(struct agent *agent)
+static void handle_requests(struct agent *agent)
 {
     struct message_buffer buf;
     struct request *request = &buf.u.request;
@@ -311,20 +311,20 @@ static void manage_agent(struct agent *agent)
         buf.chars[n] = 0;
         if (parse_request(buf.chars, request)) {
             WARNING("invalid request from %s", ip_str);
-            respond(agent->fd1, 400, &buf);
+            send_respond(agent->fd1, 400, NULL, &buf);
             break;
         }
         switch (request->method) {
         case PING:
-            respond(agent->fd1, 200, &buf);
+            send_respond(agent->fd1, 200, NULL, &buf);
             break;
         case NTFY:
-            respond(agent->fd1, 200, &buf);
+            send_respond(agent->fd1, 200, NULL, &buf);
             INFO("closing connections with %s", ip_str);
             close_connections_with_agent(agent, SUSPENDED);
             break;
         default:
-            respond(agent->fd1, 501, &buf);
+            send_respond(agent->fd1, 501, NULL, &buf);
             break;
         }
     }
@@ -332,7 +332,6 @@ static void manage_agent(struct agent *agent)
 
 static void close_connection(int fd)
 {
-    INFO("closing the connection (fd=%d)", fd);
     if (close(fd))
         WARNING("can't close the connection (fd=%d): %m", fd);
 }

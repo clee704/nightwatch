@@ -93,7 +93,7 @@ static void handle_requests(int fd)
         buf.chars[n] = 0;
         if (parse_request(buf.chars, request)) {
             WARNING("invalid request");
-            respond(fd, 400, &buf);
+            send_respond(fd, 400, NULL, &buf);
             continue;
         }
         switch (request->method) {
@@ -101,21 +101,21 @@ static void handle_requests(int fd)
         case SUSP:
             if (ether_aton_r(request->uri, &mac) == NULL) {
                 WARNING("URI not a MAC address: %s", request->uri);
-                respond(fd, 404, &buf);
+                send_respond(fd, 404, NULL, &buf);
                 break;
             }
             if (request->method == RSUM)
                 status = resume(&mac);
             else // req.method == SUSP 
                 status = suspend(&mac, &buf);
-            respond(fd, status, &buf);
+            send_respond(fd, status, NULL, &buf);
             break; 
         case GETA:
             // TODO impl
-            respond(fd, 200, &buf);
+            send_respond(fd, 200, NULL, &buf);
             break;
         default:
-            respond(fd, 501, &buf);
+            send_respond(fd, 501, NULL, &buf);
             break;
         }
     }
@@ -150,7 +150,7 @@ static int suspend(const struct ether_addr *mac, struct message_buffer *buf)
         return 409;
     if (agent->fd2 < 0)  // no connection to the agent
         return 500;
-    request(agent->fd2, SUSP, buf);
+    send_request(agent->fd2, SUSP, NULL, NULL, buf);
     n = read(agent->fd2, buf->chars, sizeof(buf->chars) - 1);
     if (n <= 0) {
         if (n < 0)

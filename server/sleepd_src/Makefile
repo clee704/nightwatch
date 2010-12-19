@@ -7,7 +7,7 @@ objects = $(sources:.c=.o)
 VPATH = ../../commons/src
 CC = gcc
 CFLAGS = -W -Wall -O2 -D_REENTRANT -I../../commons/src
-LDFLAGS = -lpthread
+LDFLAGS = -lpthread -lpcap
 
 all: $(target)
 $(target): $(objects)

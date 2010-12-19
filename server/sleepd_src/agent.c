@@ -66,7 +66,7 @@ struct agent *find_agent_by_mac(struct agent_list *list,
     return agent;
 }
 
-int add_new_agent(struct agent_list *list, const struct agent *agent)
+int add_new_agent(struct agent_list *list, struct agent *agent)
 {
     struct _agent_list_node *node;
 

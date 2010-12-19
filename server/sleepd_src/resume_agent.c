@@ -27,15 +27,16 @@ int resume_agent(struct agent *agent)
     return 0;
 }
 
-static void *loop(void *agent_) {
-    struct agent *agent = (struct agent *) agent_;
+static void *loop(void *an_agent) {
+    struct agent *agent = (struct agent *) an_agent;
     int i;
 
     for (i = 0; i < MAX_MAGIC_PACKETS; ++i) {
         if (agent->state == UP)
             break;
-        send_magic_packet(&agent->mac, NULL);
+        if (send_magic_packet(&agent->mac, NULL))
+            WARNING("send_magic_packet() failed: %m");
         sleep(WOL_INTERVAL);
     }
-    return (void *) 0;
+    return NULL;
 }
