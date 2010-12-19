@@ -262,10 +262,10 @@ cleanup()
 static void
 sigterm(int unused)
 {
-    (void) unused;
     syslog(LOG_INFO, "got SIGTERM; exiting");
     cleanup();
     exit(2);
+    unused = unused;
 }
 
 static void *
@@ -309,7 +309,6 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
                  const struct mg_request_info *unused)
 {
     int sock;
-    (void) unused;  // Suppress warning
 
     // Connect to the proxy
     sock = connect_to(sock_file);
@@ -332,6 +331,7 @@ ajax_device_list(const char *sock_file, struct mg_connection *conn,
 
     mg_printf(conn, "%s", ajax_reply_start);
     mg_printf(conn, "%s", "[]");
+    unused = unused;
 }
 
 static void
@@ -339,7 +339,7 @@ ajax_simple_method(const char *sock_file, struct mg_connection *conn,
                    const struct mg_request_info *request_info,
                    const char *method)
 {
-    char buffer[MAX_REQUEST_LEN] = {0};
+    char buffer[MAX_REQUEST_STRLEN] = {0};
     char device_id[MAX_URI_LEN] = {0};
     int sock, n;
 

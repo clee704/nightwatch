@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
@@ -18,7 +16,7 @@
 #include "daemon.h"
 
 // This is based on code originally by Richard Stevens APUE
-void daemonize(const char *cmd)
+void daemonize(const char *progname)
 {
     pid_t pid;
     struct rlimit rl;
@@ -70,12 +68,13 @@ void daemonize(const char *cmd)
     fd2 = dup(0);
 
     // Initialize the log file
-    openlog(cmd, LOG_CONS, LOG_DAEMON);
+    openlog(progname, LOG_CONS | LOG_PID, LOG_DAEMON);
     if (fd0 != 0 || fd1 != 1 || fd2 != 2) {
-        syslog(LOG_ERR, "unexpected file descriptors %d %d %d", fd0, fd1, fd2);
+        syslog(LOG_ERR,
+               "[daemon] unexpected file descriptors %d %d %d", fd0, fd1, fd2);
         exit(1);
     }
-    syslog(LOG_INFO, "daemon initialized");
+    syslog(LOG_INFO, "[daemon] initialized");
 }
 
 int write_pid(const char *filename)
