@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,10 +27,6 @@ int send_magic_packet(const struct ether_addr *dst_addr, const char *ifname_in)
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
     if (sock < 0)
-        return -1;
-
-    // Drop root privileges if the executable is suid root
-    if (setuid(getuid()) < 0)
         return -1;
 
     // Get the source address from the interface name
