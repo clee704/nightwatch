@@ -1,10 +1,10 @@
 #include <stdlib.h>
-
 #include <pthread.h>
-#include <syslog.h>
-
 #include "agent.h"
+#include "logger.h"
 #include "network.h"
+
+#define LOGGER_PREFIX "[agent] "
 
 void lock_agent(struct agent *agent)
 {
@@ -34,7 +34,7 @@ struct agent_list *new_agent_list()
     list->tail = list->head;
     return list;
 error:
-    syslog(LOG_WARNING, "[agent] can't allocate memory: %m");
+    WARNING("can't allocate memory: %m");
     return NULL;
 }
 
@@ -72,7 +72,7 @@ int add_new_agent(struct agent_list *list, const struct agent *agent)
 
     node = (struct _agent_list_node *) malloc(sizeof(struct _agent_list_node));
     if (node == NULL) {
-        syslog(LOG_WARNING, "[agent] can't allocate memory: %m");
+        WARNING("can't allocate memory: %m");
         return -1;
     }
     node->agent = agent;
@@ -90,7 +90,7 @@ struct agent_list_iterator *new_agent_list_iterator(struct agent_list *list)
     iter = (struct agent_list_iterator *)
         malloc(sizeof(struct agent_list_iterator));
     if (iter == NULL) {
-        syslog(LOG_WARNING, "[agent] can't allocate memory: %m");
+        WARNING("can't allocate memory: %m");
         return NULL;
     }
     iter->next = list->head->next;

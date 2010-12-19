@@ -1,9 +1,10 @@
 #include <string.h>
-#include <syslog.h>
-
 #include "message_exchange.h"
+#include "logger.h"
 #include "network.h"
 #include "protocol.h"
+
+#define LOGGER_PREFIX "[message_exchange] "
 
 void request(int fd, int method, struct message_buffer *buf)
 {
@@ -14,9 +15,9 @@ void request(int fd, int method, struct message_buffer *buf)
     buf->u.request.has_data = 0;
     len = serialize_request(&buf->u.request, buf->chars);
     if (len < 0)
-        syslog(LOG_WARNING, "[message_exchange] serialize_request() failed");
+        WARNING("serialize_request() failed");
     if (write_string(fd, buf->chars))
-        syslog(LOG_WARNING, "[message_exchange] write() failed: %m");
+        WARNING("write() failed: %m");
 }
 
 void respond(int fd, int status, struct message_buffer *buf)
@@ -34,7 +35,7 @@ void respond(int fd, int status, struct message_buffer *buf)
     case 500: msg = "Internal Server Error"; break;
     case 501: msg = "Not Implemented"; break;
     default:
-        syslog(LOG_WARNING, "[message_exchange] invalid status %d", status);
+        WARNING("invalid status %d", status);
         return;
     }
     buf->u.response.status = status;
@@ -42,7 +43,7 @@ void respond(int fd, int status, struct message_buffer *buf)
     buf->u.response.has_data = 0;
     len = serialize_response(&buf->u.response, buf->chars);
     if (len < 0)
-        syslog(LOG_WARNING, "[message_exchange] serialize_response() failed");
+        WARNING("serialize_response() failed");
     if (write_string(fd, buf->chars))
-        syslog(LOG_WARNING, "[message_exchange] write() failed: %m");
+        WARNING("write() failed: %m");
 }
