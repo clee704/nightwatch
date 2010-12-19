@@ -15,8 +15,8 @@
 
 #define ARP_PACKET_SIZE 42
 
-static size_t build_packet(struct in_addr *,
-                           struct ether_addr *,
+static size_t build_packet(const struct in_addr *,
+                           const struct ether_addr *,
                            unsigned char *packet);
 
 int send_poison_packet(const struct in_addr *ip,
@@ -28,7 +28,7 @@ int send_poison_packet(const struct in_addr *ip,
     int sock;
     struct sockaddr_ll dst_sockaddr;
     unsigned char packet[ARP_PACKET_SIZE];
-    size_t packet_sz, i;
+    size_t packet_sz;
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
     if (sock < 0)
@@ -68,9 +68,9 @@ int send_poison_packet(const struct in_addr *ip,
     return 0;
 }
 
-static int build_packet(struct in_addr *ip,
-                        struct ether_addr *mac,
-                        unsigned char *packet)
+static size_t build_packet(const struct in_addr *ip,
+                           const struct ether_addr *mac,
+                           unsigned char *packet)
 {
     // Ethernet header
     memcpy(packet + 0, "\xff\xff\xff\xff\xff\xff", 6);  // MAC destination
