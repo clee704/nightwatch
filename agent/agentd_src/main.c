@@ -17,9 +17,17 @@
 
 #define BACKLOG_SIZE 64
 #define UDP_PATH "/tmp/nitchsocket"
-//TODO open port 4444 request
-//ARP poisoning 
-//sleep marking for re connection after awake
+/*
+int main()
+{
+			struct ether_addr hwaddr;
+			struct in_addr  ipaddr;
+			get_hwaddr(&hwaddr);
+			get_ipaddr(&ipaddr);
+			send_poison_packet(&ipaddr,&hwaddr, NULL);
+
+}
+*/
 int make_connect(char *, int);
 void go_to_sleep();
 time_t sleep_time;
@@ -151,11 +159,11 @@ time_stamper()
 		if(now - sleep_time > 5){
 			syslog(LOG_DEBUG, "i slept");
 
-			char hwaddr[20];
-			struct in_addr ia;
-			ia.s_addr = htonl(gethostid());
-			get_hwaddr(hwaddr);
-			send_poison_packet(inet_ntoa(ia),hwaddr, NULL);
+			struct ether_addr hwaddr;
+			struct in_addr  ipaddr;
+			get_hwaddr(&hwaddr);
+			get_ipaddr(&ipaddr);
+			send_poison_packet(&ipaddr,&hwaddr, NULL);
 
 			initialize();
 			//i slept
@@ -233,12 +241,20 @@ void
 send_host_info(int fd)
 {
 	char hostname[100];
-	char hwaddr[20];
+	char hwaddrbuf[20];
 	char buf[200];
-	struct request req;
+	//struct request req;
+	struct ether_addr hwaddr;
 	gethostname(hostname, 100);
-	get_hwaddr(hwaddr);
-	sprintf(buf,"INFO\n\n%s\n%s\n\n", hostname, hwaddr);
+	get_hwaddr(&hwaddr);
+	sprintf(hwaddrbuf,"%.2x:%.2x:%.2x:%.2x:%.2x:%.2x",
+			(unsigned char)hwaddr.ether_addr_octet[0],
+			(unsigned char)hwaddr.ether_addr_octet[1],
+			(unsigned char)hwaddr.ether_addr_octet[2],
+			(unsigned char)hwaddr.ether_addr_octet[3],
+			(unsigned char)hwaddr.ether_addr_octet[4],
+			(unsigned char)hwaddr.ether_addr_octet[5]);
+	sprintf(buf,"INFO\n\n%s\n%s\n\n", hostname, hwaddrbuf);
 	write(fd, buf, 200);
 	syslog(LOG_DEBUG, "name and hw are sent %s",buf);
 	//request(fd, INFO, buf, &req);

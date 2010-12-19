@@ -1,3 +1,4 @@
+#include <netinet/in.h>
 /*
  * This structure is used to store the user time, nice time, system time and idle time.
  */
@@ -16,10 +17,13 @@ struct _CpuStat
  */
 double get_cpu_usage();
 
+struct ether_addr;
 
 /**
  * Return the cpu usage in percentage term by using /proc/stat.
  * It takes 1 second to get cpu usage.
  * This function works regardless of number of cpus.
  */
-void get_hwaddr(char*);
+void get_hwaddr(struct ether_addr *);
+
+void get_ipaddr(struct in_addr*);

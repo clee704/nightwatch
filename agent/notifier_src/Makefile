@@ -13,6 +13,6 @@ $(target): $(object)
 $(object) : $(source)
 
 clean:
-	rm -r $(target) $(object)
+	rm -rf $(target) $(object)
 
 .PHONY: clean all

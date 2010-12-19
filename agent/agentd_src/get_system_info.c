@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
+#include <netinet/ether.h>
 #include <net/if.h>
 #include <pthread.h>
 
@@ -17,7 +18,7 @@ struct _CpuStat CpuStat[2];
 void *_cpu_usage();
 
 void
-get_hwaddr(char *hw_address)
+get_hwaddr(struct ether_addr *hw_address)
 {
 	int fd;
 	struct ifreq ifr;
@@ -30,15 +31,30 @@ get_hwaddr(char *hw_address)
 	ioctl(fd, SIOCGIFHWADDR, &ifr);
 	close(fd);
 
-	sprintf(hw_address,"%.2x:%.2x:%.2x:%.2x:%.2x:%.2x",
-			(unsigned char)ifr.ifr_hwaddr.sa_data[0],
-			(unsigned char)ifr.ifr_hwaddr.sa_data[1],
-			(unsigned char)ifr.ifr_hwaddr.sa_data[2],
-			(unsigned char)ifr.ifr_hwaddr.sa_data[3],
-			(unsigned char)ifr.ifr_hwaddr.sa_data[4],
-			(unsigned char)ifr.ifr_hwaddr.sa_data[5]);
+	memcpy(hw_address->ether_addr_octet, ifr.ifr_hwaddr.sa_data, 6);
+
 	return ;
 }
+
+void
+get_ipaddr(struct in_addr *ipaddress)
+{
+	int fd;
+	struct ifreq ifr;
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+	ifr.ifr_addr.sa_family = AF_INET;
+	strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1);
+
+	ioctl(fd, SIOCGIFADDR, &ifr);
+	close(fd);
+
+	*ipaddress = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr;
+	return ;
+
+}
+
 
 double 
 get_cpu_usage()

@@ -9,6 +9,7 @@ VPATH = ../../commons/src
 
 all: $(target)
 
+
 $(target): $(objects)
 	$(CC) $(LDFLAGS) -o $@ $^
 
