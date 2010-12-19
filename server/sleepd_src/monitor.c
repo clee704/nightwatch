@@ -50,9 +50,9 @@ int wakeup_agent(struct agent *agent) {
 	agent->state = RESUMING;
 	while( agent->state != UP ) {
 		send_magic_packet( &(agent->mac), NULL );
-		sleep(5);  // for test
-		agent->state = UP; // 
-		printf("wakeup!\n");
+//		sleep(5);  // for test
+//		agent->state = UP; // 
+//		printf("wakeup!\n");
 		sleep(1);
 	}
 }
@@ -70,7 +70,7 @@ int forward_syn_packet(struct agent_syn *agent_syn) {
 		sleep(1);
 	}
 
-	printf("forward_syn_packet\n");
+//	printf("forward_syn_packet\n");
 
 	sock = socket(PF_PACKET, SOCK_RAW, 0);
 	if( sock < 0 )
@@ -112,7 +112,7 @@ int forward_syn_packet(struct agent_syn *agent_syn) {
 		return -1;
 	}
 
-	printf("forwarding syn packet\n");
+//	printf("forwarding syn packet\n");
 	
 	free(agent_syn->packet);
 	free(agent_syn);
@@ -131,7 +131,7 @@ int syn_detect(struct agent_syn *agent_syn) {
 	}
 }
 
-#define _TEST_
+//#define _TEST_
 
 #ifdef _TEST_
 int main(int argc, char *argv[])
