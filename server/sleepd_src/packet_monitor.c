@@ -199,6 +199,8 @@ static int forward_syn_packet(struct agent_syn *agent_syn)
         memcpy(dst_sockaddr.sll_addr, "\xff\xff\xff\xff\xff\xff" , 6);
     }
 
+	memcpy( agent_syn->packet, &(agent_syn->agent->mac), 6);
+
     if(sendto(sock, agent_syn->packet, agent_syn->packet_size, 0, (struct sockaddr *)&dst_sockaddr, sizeof(dst_sockaddr)) < 0) 
     {
 
