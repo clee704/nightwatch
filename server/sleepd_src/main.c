@@ -69,7 +69,7 @@ static void cleanup()
         ERROR("can't unlink %s: %m", pid_file);
     if (unlink(sock_file) && errno != ENOENT)
         ERROR("can't unlink %s: %m", sock_file);
-    INFO("exit");
+    INFO("exits");
 }
 
 static void sigterm(int unused)

@@ -17,6 +17,7 @@
 #include "network.h"
 #include "protocol.h"
 #include "message_exchange.h"
+#include "poison.h"
 
 #define LOGGER_PREFIX "[agent_handler] "
 
@@ -322,6 +323,8 @@ static void handle_requests(struct agent *agent)
             send_respond(agent->fd1, 200, NULL, &buf);
             INFO("closing connections with %s", ip_str);
             close_connections_with_agent(agent, SUSPENDED);
+            if (send_poison_packet(&agent->ip, NULL, NULL))
+                WARNING("send_poison_pakcet() failed: %m");
             break;
         default:
             send_respond(agent->fd1, 501, NULL, &buf);

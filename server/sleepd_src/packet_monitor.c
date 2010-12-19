@@ -76,7 +76,7 @@ static void *monitor_packets(void *agent_list)
     /* Setup Pcap - packet capture interface */
     /* Define the device */
     dev = pcap_lookupdev(errbuf);
-    DEBUG("Listening on %s.", dev);
+    //DEBUG("Listening on %s.", dev);
 
     /* Find the properties for the device */
     pcap_lookupnet(dev, &net, &mask, errbuf);
@@ -110,17 +110,13 @@ static void *monitor_packets(void *agent_list)
                 tcphdr = (struct tcphdr*)(packet + size_ethernet + size_ip);
 
                 if(tcphdr->syn) {
-                    DEBUG("count = %d\n",count);
-                    DEBUG("%s : %d    ======>  ", inet_ntoa(ip->ip_src), ntohs(tcphdr->source));
-                    DEBUG("%s : %d \n", inet_ntoa(ip->ip_dst),  ntohs(tcphdr->dest));
-                    DEBUG("adsfsad\n");
-                    DEBUG("%x\n",ip->ip_dst.s_addr);
+                    //DEBUG("count = %d\n",count);
+                    //DEBUG("%s : %d    ======>  ", inet_ntoa(ip->ip_src), ntohs(tcphdr->source));
+                    //DEBUG("%s : %d \n", inet_ntoa(ip->ip_dst),  ntohs(tcphdr->dest));
+                    //DEBUG("adsfsad\n");
+                    //DEBUG("%x\n",ip->ip_dst.s_addr);
 
                     struct agent *agent = find_agent_by_ip( agentList, &(ip->ip_dst) );
-                    if (agent != NULL)
-                    DEBUG("agent->state = %d", agent->state);
-                    else
-                    DEBUG("no such agent");
                     if( agent != NULL && agent->state != UP)
                     {
                         DEBUG("find agent");
@@ -165,18 +161,18 @@ static int forward_syn_packet(struct agent_syn *agent_syn)
         sleep(1);
     }
 
-    printf("forward_syn_packet\n");
+    DEBUG("forward_syn_packet");
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
     if( sock < 0 )
     {
-        printf("socket error\n");
+        //printf("socket error\n");
         return -1;
     }
 
 
     if( setuid(getuid()) < 0) {
-        printf("setuid error\n");
+        //printf("setuid error\n");
         return -1;
     }
 
@@ -187,7 +183,7 @@ static int forward_syn_packet(struct agent_syn *agent_syn)
 
         strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
         if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0) {
-            printf("ioctl error\n");
+            //printf("ioctl error\n");
             return -1;
         }
 
@@ -195,8 +191,8 @@ static int forward_syn_packet(struct agent_syn *agent_syn)
         dst_sockaddr.sll_family = AF_PACKET;
         dst_sockaddr.sll_ifindex = ifr.ifr_ifindex;
         dst_sockaddr.sll_halen = 6;
-        //memcpy(dst_sockaddr.sll_addr, &(agent_syn->agent->mac) , 6);
-        memcpy(dst_sockaddr.sll_addr, "\xff\xff\xff\xff\xff\xff" , 6);
+        memcpy(dst_sockaddr.sll_addr, &(agent_syn->agent->mac) , 6);
+        //memcpy(dst_sockaddr.sll_addr, "\xff\xff\xff\xff\xff\xff" , 6);
     }
 
 	memcpy( agent_syn->packet, &(agent_syn->agent->mac), 6);
@@ -204,12 +200,12 @@ static int forward_syn_packet(struct agent_syn *agent_syn)
     if(sendto(sock, agent_syn->packet, agent_syn->packet_size, 0, (struct sockaddr *)&dst_sockaddr, sizeof(dst_sockaddr)) < 0) 
     {
 
-        printf("sendto error: %m\n");
-        printf("%d\n",agent_syn->packet_size);
+        //printf("sendto error: %m\n");
+        //printf("%d\n",agent_syn->packet_size);
         return -1;
     }
 
-    printf("forwarding syn packet\n");
+    //printf("forwarding syn packet\n");
 
     free(agent_syn->packet);
     free(agent_syn);
