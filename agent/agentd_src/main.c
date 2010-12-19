@@ -1,8 +1,5 @@
-#define _GNU_SOURCE
-
-#include <errno.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <time.h>
 
@@ -15,6 +12,7 @@
 
 #include "network.h"
 #include "protocol.h"
+#include "poison.h"
 #include "get_system_info.h"
 
 #define BACKLOG_SIZE 64
@@ -23,22 +21,27 @@
 //ARP poisoning 
 //sleep marking for re connection after awake
 int make_connect(char *, int);
-int go_to_sleep();
+void go_to_sleep();
 time_t sleep_time;
 void read_config();
 void send_host_info(int);
 void send_ok(int);
+void initialize();
 void *sleep_listener();
 void *request_handler();
 void *time_stamper();
+void request(int, int, char *, struct request *);
+void respond(int, int, char *, struct response *);
+
 #define connection_retry_num 10
 char server_ip[100];
 int server_port;
-int socket_to_listen;
-int socket_to_tell;
+int socket_response;
+int socket_request;
+int sock;
 pthread_t p_thread[3];
 int
-main (int argc, char **argv)
+main ()
 {
 	pid_t pid, sid;
 
@@ -68,14 +71,18 @@ main (int argc, char **argv)
 
 	read_config();
 
+	struct sockaddr_in addr;
+	set_sockaddr_in(&addr, AF_INET, 4444, INADDR_ANY);
+	sock = init_server(SOCK_STREAM, &addr, sizeof(addr), BACKLOG_SIZE);
+
+	if ( sock < 0) {
+		syslog(LOG_ERR, "can't listen on port %d: %m", 4444);
+		exit(EXIT_FAILURE);
+	}
+	syslog(LOG_DEBUG, "listening on 4444");
+
 	initialize();
 
-	if( pthread_create(&p_thread[0], NULL, sleep_listener, NULL)){
-		syslog(LOG_ERR, "daemon can't make thread");
-	}
-	if ( pthread_create(&p_thread[1], NULL, request_handler, NULL)){
-		syslog(LOG_ERR, "daemon can't make thread");
-	}
 	if ( pthread_create(&p_thread[2], NULL, time_stamper, NULL)){
 		syslog(LOG_ERR, "daemon can't make thread");
 	}
@@ -88,8 +95,9 @@ main (int argc, char **argv)
 	close(STDIN_FILENO);
 	close(STDERR_FILENO);
 	close(STDOUT_FILENO);
-	close(socket_to_tell);
-	close(socket_to_listen);
+	close(socket_request);
+	close(socket_response);
+	close(sock);
 	exit(EXIT_SUCCESS);
 
 }
@@ -98,7 +106,7 @@ initialize()
 {
 	int i;
 	for(i = 0 ; i < connection_retry_num &&
-			((socket_to_tell = make_connect(server_ip, server_port)) < 0); i++) {
+			((socket_request = make_connect(server_ip, server_port)) < 0); i++) {
 		//retry connect in 1 second
 		sleep(1);		
 	}
@@ -106,29 +114,29 @@ initialize()
 		syslog(LOG_ERR, "connection fail");
 		exit(EXIT_FAILURE);
 	}
+	syslog(LOG_DEBUG, "socket to tell estabilised");
+	send_host_info(socket_request);
 	///////////////////////
 	
-	struct sockaddr_in addr;
-	set_sockaddr_in(&addr, AF_INET, 4444, INADDR_ANY);
-	int sock = init_server(SOCK_STREAM, &addr, sizeof(addr), BACKLOG_SIZE);
-
-	if ( sock < 0) {
-		syslog(LOG_ERR, "can't listen on port %d: %m", 4444);
-		return -1;
-	}
 	struct sockaddr_in proxy_addr;
 	socklen_t addr_len;
 
 	addr_len = sizeof(proxy_addr);
-	socket_to_listen = accept(sock, (struct sockaddr *)&proxy_addr, &addr_len);
-	if (socket_to_listen < 0){
+	socket_response = accept(sock, (struct sockaddr *)&proxy_addr, &addr_len);
+	syslog(LOG_DEBUG, "socket to listen estabilised");
+	if (socket_response < 0){
 		syslog(LOG_ERR, "accept() failed: %m");
 	}
 
-	// send host information
-	send_host_info(socket_to_tell);
+	if( pthread_create(&p_thread[0], NULL, sleep_listener, NULL)){
+		syslog(LOG_ERR, "daemon can't make thread");
+	}
+	if ( pthread_create(&p_thread[1], NULL, request_handler, NULL)){
+		syslog(LOG_ERR, "daemon can't make thread");
+	}
 
-	//initialize time stamp
+
+	///initialize time stamp
 	time(&sleep_time);
 	syslog(LOG_DEBUG, "initialization complete");
 }
@@ -141,8 +149,13 @@ time_stamper()
 		sleep(1);
 		time(&now);
 		if(now - sleep_time > 5){
-			close(socket_to_tell);
-			close(socket_to_listen);
+			syslog(LOG_DEBUG, "i slept");
+
+			char hwaddr[20];
+			struct in_addr ia;
+			ia.s_addr = htonl(gethostid());
+			get_hwaddr(hwaddr);
+			send_poison_packet(inet_ntoa(ia),hwaddr, NULL);
 
 			initialize();
 			//i slept
@@ -158,19 +171,31 @@ request_handler()
 	char req_buf[MAX_REQUEST_STRLEN];
 	char resp_buf[MAX_RESPONSE_STRLEN];
 	while(1){
-		if(read(socket_to_listen, req_buf, MAX_REQUEST_STRLEN)==0){
-			//////////////////
+		if(read(socket_response, req_buf, MAX_REQUEST_STRLEN)==0){
+			syslog(LOG_DEBUG, "return value of read is 0");
+			close(socket_response);
+			close(socket_request);
+			break;
 		};
+		syslog(LOG_DEBUG,"received :%s",req_buf);
 		parse_request(req_buf, &req);
 
 		switch(req.method){
 			case SUSP:
-				respond(socket_to_tell, 200, resp_buf, &res);
+				respond(socket_response, 200, resp_buf, &res);
 				go_to_sleep();
 				break;
 			case PING:
-				respond(socket_to_tell, 200, resp_buf, &res);
+				respond(socket_response, 200, resp_buf, &res);
 				break;
+			case GETA:
+			case RSUM:
+			case INFO:
+			case NTFY:
+				break;
+		}
+		if(req.method == SUSP){
+			break;
 		}
 	}
 }
@@ -213,16 +238,17 @@ send_host_info(int fd)
 	struct request req;
 	gethostname(hostname, 100);
 	get_hwaddr(hwaddr);
-	sprintf(buf,"%s\n%s", hostname, hwaddr);
-
-	request(fd, INFO, buf, &req);
+	sprintf(buf,"INFO\n\n%s\n%s\n\n", hostname, hwaddr);
+	write(fd, buf, 200);
+	syslog(LOG_DEBUG, "name and hw are sent %s",buf);
+	//request(fd, INFO, buf, &req);
 }
 void
 read_config()
 {
 	char buf[100];
 	FILE *conf = fopen("/etc/nitch_agent.conf", "r");
-	if ( conf < 0) {
+	if ( conf == NULL ) {
 		syslog(LOG_ERR, "can't open configuration file.");
 		exit(EXIT_FAILURE);
 	}
@@ -245,7 +271,7 @@ make_connect(char *server, int port)
 		return -1;
 	}
 	struct sockaddr_in addr;
-	set_sockaddr_in(&addr, AF_INET, port, sizeof(addr));
+	set_sockaddr_in(&addr, AF_INET, port, inet_addr(server));
 	if( -1 == connect( server_socket, (struct sockaddr*)&addr, sizeof(addr))){ 
 		syslog(LOG_ERR, "can't connect to server. retry in 1 seconnd");
 		return -1;
@@ -254,13 +280,12 @@ make_connect(char *server, int port)
 }
 
 
-int
+void
 go_to_sleep ()
 {
 	//use pm-suspend command to sleep
 	syslog(LOG_NOTICE, "this agent machine is going to sleep");
 	system("pm-suspend");
-	return 0;
 }
 void *
 sleep_listener()
@@ -286,14 +311,14 @@ sleep_listener()
 
 		//if anyone connect to socket file,
 		//	we accept and assume this is sleeping condition
-		int clilen = sizeof(reporter_addr);
+		socklen_t clilen = sizeof(reporter_addr);
 		reporter_sockfd = accept(my_sockfd, (struct sockaddr *)&reporter_addr, &clilen);
 
 		syslog(LOG_NOTICE, "got sleep signal. send notification message to server");
 
 		char req_buf[MAX_REQUEST_STRLEN];
 		struct request req;
-		request(socket_to_tell, NTFY, req_buf, &req);
+		request(socket_request, NTFY, req_buf, &req);
 		
 		close(reporter_sockfd);
 		close(my_sockfd);
