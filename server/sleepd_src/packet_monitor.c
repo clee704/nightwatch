@@ -114,7 +114,7 @@ static void *monitor_packets(void *agent_list)
                     DEBUG("%s : %d    ======>  ", inet_ntoa(ip->ip_src), ntohs(tcphdr->source));
                     DEBUG("%s : %d \n", inet_ntoa(ip->ip_dst),  ntohs(tcphdr->dest));
                     DEBUG("adsfsad\n");
-                    DEBUG("%x\n",ip->ip_dst);
+                    DEBUG("%x\n",ip->ip_dst.s_addr);
 
                     struct agent *agent = find_agent_by_ip( agentList, &(ip->ip_dst) );
                     if (agent != NULL)
@@ -142,13 +142,13 @@ static void *monitor_packets(void *agent_list)
 
 static int syn_detect(struct agent_syn *agent_syn)
 {
-    pthread_t tid[2];
+    pthread_t tid;
     if( agent_syn->agent->state == SUSPENDED ) {
         //create wakeup thread
         if (resume_agent(agent_syn->agent))
             return -1;
     }
-    if( pthread_create(&tid[1], NULL, (void * (*)(void *))forward_syn_packet, agent_syn) < 0) {
+    if( pthread_create(&tid, NULL, (void * (*)(void *))forward_syn_packet, agent_syn) < 0) {
         return -1;
     }
     return 0;
