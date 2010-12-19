@@ -68,7 +68,7 @@ void daemonize(const char *progname)
     fd2 = dup(0);
 
     // Initialize the log file
-    openlog(progname, LOG_CONS, LOG_DAEMON);
+    openlog(progname, LOG_CONS | LOG_PID, LOG_DAEMON);
     if (fd0 != 0 || fd1 != 1 || fd2 != 2) {
         syslog(LOG_ERR,
                "[daemon] unexpected file descriptors %d %d %d", fd0, fd1, fd2);

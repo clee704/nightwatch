@@ -7,7 +7,6 @@
 
 #include <pthread.h>
 #include <signal.h>
-#include <syslog.h>
 #include <unistd.h>
 
 #include "agent.h"
@@ -15,6 +14,9 @@
 #include "ui_handler.h"
 #include "packet_monitor.h"
 #include "daemon.h"
+#include "logger.h"
+
+#define LOGGER_PREFIX "[main] "
 
 #define DEFAULT_PID_FILE "/var/run/nitch-sleepd.pid"
 #define DEFAULT_SOCK_FILE "/var/run/nitch-sleepd.sock"
@@ -64,15 +66,15 @@ static void display_help_and_exit()
 static void cleanup()
 {
     if (unlink(pid_file) && errno != ENOENT)
-        syslog(LOG_ERR, "can't unlink %s: %m", pid_file);
+        ERROR("can't unlink %s: %m", pid_file);
     if (unlink(sock_file) && errno != ENOENT)
-        syslog(LOG_ERR, "can't unlink %s: %m", sock_file);
-    syslog(LOG_INFO, "exit");
+        ERROR("can't unlink %s: %m", sock_file);
+    INFO("exit");
 }
 
 static void sigterm(int unused)
 {
-    syslog(LOG_INFO, "got SIGTERM");
+    INFO("got SIGTERM");
     exit(2);
     unused = unused;
 }
@@ -88,11 +90,11 @@ static void exit_if_not_root(const char *progname)
 static void init(const char *pid_file)
 {
     if (write_pid(pid_file))
-        syslog(LOG_WARNING, "can't write PID file to %s: %m", pid_file);
+        WARNING("can't write PID file to %s: %m", pid_file);
     if (atexit(cleanup))
-        syslog(LOG_WARNING, "atexit() failed: %m");
+        WARNING("atexit() failed: %m");
     if (register_signal_handler(SIGTERM, sigterm))
-        syslog(LOG_WARNING, "can't catch SIGTERM: %m");
+        WARNING("can't catch SIGTERM: %m");
 }
 
 static void start(int port, const char *sock_file)
@@ -102,23 +104,23 @@ static void start(int port, const char *sock_file)
 
     list = new_agent_list();
     if (list == NULL) {
-        syslog(LOG_ERR, "can't create an agent list");
+        CRITICAL("can't create an agent list");
         exit(2);
     }
     if (start_agent_handler(&tid1, list, port)) {
-        syslog(LOG_ERR, "can't start the agent handler");
+        CRITICAL("can't start the agent handler");
         exit(2);
     }
     if (start_ui_handler(&tid2, list, sock_file)) {
-        syslog(LOG_ERR, "can't start the UI handler");
+        CRITICAL("can't start the UI handler");
         exit(2);
     }
     if (start_packet_monitor(&tid3, list)) {
-        syslog(LOG_ERR, "can't start the packet monitor");
+        CRITICAL("can't start the packet monitor");
         exit(2);
     }
     pthread_join(tid1, NULL);
     pthread_join(tid2, NULL);
     pthread_join(tid3, NULL);
-    syslog(LOG_WARNING, "all thread terminated");  // should not happen
+    ERROR("all thread terminated");  // should not happen
 }

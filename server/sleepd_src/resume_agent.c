@@ -1,11 +1,12 @@
 #include <pthread.h>
-#include <syslog.h>
 #include <unistd.h>
 
 #include "resume_agent.h"
 #include "agent.h"
 #include "send_magic_packet.h"
+#include "logger.h"
 
+#define LOGGER_PREFIX "[resume_agent] "
 #define WOL_INTERVAL 1
 #define MAX_MAGIC_PACKETS 15
 
@@ -20,7 +21,7 @@ int resume_agent(struct agent *agent)
         agent->state = RESUMING;
     unlock_agent(agent);
     if (pthread_create(&tid, NULL, loop, (void *) agent)) {
-        syslog(LOG_WARNING, "[resume_agent] can't create a thread: %m");
+        WARNING("can't create a thread: %m");
         return -1;
     }
     return 0;

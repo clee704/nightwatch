@@ -32,7 +32,7 @@ int connect_to(int type, const struct sockaddr *addr, socklen_t alen)
 
     if (fd < 0)
         return -1;
-    if (connect(type, addr, alen))
+    if (connect(fd, addr, alen))
         return -1;
     return fd;
 }

@@ -17,24 +17,24 @@ clean:
 	rm -f $(target) $(objects)
 
 main.o: %.o: %.c \
-  agent.h agent_handler.h ui_handler.h packet_monitor.h daemon.h
+  agent.h agent_handler.h ui_handler.h packet_monitor.h daemon.h logger.h
 
 agent.o: %.o: %.c %.h \
-  network.h
+  logger.h network.h
 
 agent_handler.o: %.o: %.c %.h \
-  agent.h network.h protocol.h message_exchange.h
+  agent.h logger.h network.h protocol.h message_exchange.h
 
 ui_handler.o: %.o: %.c %.h \
-  agent.h resume_agent.h network.h protocol.h message_exchange.h
+  agent.h resume_agent.h logger.h network.h protocol.h message_exchange.h
 
 packet_monitor.o: %.o: %.c %.h \
-  agent.h
+  agent.h logger.h
 
 send_magic_packet.o: %.o: %.c %.h
 
 resume_agent.o: %.o: %.c %.h \
-  agent.h send_magic_packet.h
+  agent.h send_magic_packet.h logger.h
 
 #
 # common objects
@@ -46,6 +46,6 @@ network.o: %.o: %.c %.h
 protocol.o: %.o: %.c %.h
 
 message_exchange.o: %.o: %.c %.h \
-  network.h protocol.h
+  logger.h network.h protocol.h
 
 .PHONY: all clean
