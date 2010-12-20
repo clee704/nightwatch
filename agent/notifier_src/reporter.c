@@ -9,7 +9,7 @@
 #include <string.h> 
 
 int
-main(int argc, char **argv){
+main(void){
 	int reporter_fd;
 
 	struct sockaddr_un reporter_addr;

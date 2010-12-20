@@ -10,6 +10,7 @@
 
 #include <net/ethernet.h>
 #include <netinet/ether.h>
+#include <sys/param.h>
 
 #include "agent_handler.h"
 #include "agent.h"
@@ -44,21 +45,26 @@ static void close_connection(int fd);
 static void close_connections_with_agent(struct agent *, int state);
 
 static int sock;
+static int listening_port_on_agent;
 static struct agent_list *list;
 
-int start_agent_handler(pthread_t *tid, struct agent_list *list_, int port)
+int start_agent_handler(pthread_t *tid,
+                        struct agent_list *agent_list,
+                        int port1,
+                        int port2)
 {
     struct sockaddr_in addr;
 
-    set_sockaddr_in(&addr, AF_INET, port, INADDR_ANY);
+    set_sockaddr_in(&addr, AF_INET, port1, INADDR_ANY);
     sock = init_server(SOCK_STREAM,
                        (struct sockaddr *) &addr, sizeof(addr),
                        BACKLOG_SIZE);
     if (sock < 0) {
-        ERROR("can't listen on port %d: %m", port);
+        ERROR("can't listen on port %d: %m", port1);
         return -1;
     }
-    list = list_;
+    listening_port_on_agent = port2;
+    list = agent_list;
     if (pthread_create(tid, NULL, accept_agents, NULL)) {
         ERROR("can't create a thread: %m");
         return -1;
@@ -167,6 +173,10 @@ static int read_info(int fd,
     if (c == NULL)
         goto malformed_data;
     c[0] = 0;
+    if (c - request->data > MAXHOSTNAMELEN - 1) {
+        WARNING("hostname [%.24s...] is too long", *hostname);
+        return 400;
+    }
     if (ether_aton_r(c + 1, mac) == NULL)
         goto malformed_data;
     c = strchr(c + 1, '\n');
@@ -202,7 +212,7 @@ static void handle_new_agent(const struct in_conn *conn,
     agent->total_downtime = 0;
     agent->sleep_time = 0;
     agent->fd1 = conn->fd;
-    set_sockaddr_in(&sa, AF_INET, 4444, agent->ip.s_addr);
+    set_sockaddr_in(&sa, AF_INET, listening_port_on_agent, agent->ip.s_addr);
     agent->fd2 = connect_to(SOCK_STREAM,
                             (struct sockaddr *) &sa,
                             sizeof(struct sockaddr_in));
@@ -250,7 +260,7 @@ static void handle_registered_agent(const struct in_conn *conn,
         goto close;
     }
     agent->fd1 = conn->fd;
-    set_sockaddr_in(&sa, AF_INET, 4444, agent->ip.s_addr);
+    set_sockaddr_in(&sa, AF_INET, listening_port_on_agent, agent->ip.s_addr);
     agent->fd2 = connect_to(SOCK_STREAM,
                             (struct sockaddr *) &sa,
                             sizeof(struct sockaddr_in));

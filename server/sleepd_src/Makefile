@@ -37,7 +37,7 @@ resume_agent.o: %.o: %.c %.h \
   agent.h send_magic_packet.h logger.h
 
 #
-# common objects
+# Common objects
 #
 daemon.o: %.o: %.c %.h
 

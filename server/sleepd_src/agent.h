@@ -35,6 +35,8 @@ struct agent_list_iterator {
     struct _agent_list_node *next;
 };
 
+const char *agent_state_to_string(const struct agent *);
+
 /**
  * TODO documentate
  */
