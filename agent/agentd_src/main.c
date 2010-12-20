@@ -10,6 +10,7 @@
 #include <syslog.h>
 #include <pthread.h>
 
+#include "daemon.h"
 #include "network.h"
 #include "protocol.h"
 #include "poison.h"
@@ -57,7 +58,7 @@ main ()
 
 	struct sockaddr_in addr;
 	set_sockaddr_in(&addr, AF_INET, 4444, INADDR_ANY);
-	sock = init_server(SOCK_STREAM, &addr, sizeof(addr), BACKLOG_SIZE);
+	sock = init_server(SOCK_STREAM, (struct sockaddr *) &addr, sizeof(addr), BACKLOG_SIZE);
 
 	if ( sock < 0) {
 		syslog(LOG_ERR, "can't listen on port %d: %m", 4444);
@@ -182,6 +183,7 @@ request_handler()
 			break;
 		}
 	}
+	return NULL;
 }
 void
 request(int fd, int method, char *char_buf, struct request *req_buf)
