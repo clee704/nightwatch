@@ -17,7 +17,7 @@ main.o: %.o: %.c \
   ajax_handler.h daemon.h logger.h protocol.h mongoose.h
 
 ajax_handler.o: %.o: %.c %.h \
-  logger.h message_exchange.h mongoose.h
+  logger.h network.h message_exchange.h mongoose.h
 
 #
 # Common objects

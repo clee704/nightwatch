@@ -184,7 +184,7 @@ static int suspend(const struct ether_addr *mac, struct message_buffer *buf)
     case 200:
         return 200;
     default:
-        WARNING("got %d", response->status);
+        WARNING("got unexpected response status code: %d", response->status);
         return 500;
     }
 }
