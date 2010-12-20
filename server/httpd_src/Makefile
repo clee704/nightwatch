@@ -1,24 +1,40 @@
 target = nitch-httpd
-sources = main.c mongoose.c daemon.c protocol.c
+sources = main.c ajax_handler.c daemon.c network.c protocol.c \
+  message_exchange.c mongoose.c
 objects = $(sources:.c=.o)
 
-VPATH = mongoose ../../commons/src
+VPATH = ../../commons/src mongoose
 CC = gcc
-CFLAGS = -W -Wall -O2 -Imongoose -I../../commons/src
-LDFLAGS = -ldl -pthread
+CFLAGS = -W -Wall -O2 -D_REENTRANT -I../../commons/src -Imongoose
+LDFLAGS = -lpthread -ldl
 
 all: $(target)
 
 $(target): $(objects)
-	$(CC) $(LDFLAGS) -o $@ $^ 
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
-main.o: main.c daemon.h protocol.h mongoose.h
+main.o: %.o: %.c \
+  ajax_handler.h daemon.h logger.h protocol.h mongoose.h
 
-mongoose.o: mongoose.c mongoose.h
+ajax_handler.o: %.o: %.c %.h \
+  logger.h message_exchange.h mongoose.h
 
-daemon.o: daemon.c daemon.h
+#
+# Common objects
+#
+daemon.o: %.o: %.c %.h
 
-protocol.o: protocol.c protocol.h
+network.o: %.o: %.c %.h
+
+protocol.o: %.o: %.c %.h
+
+message_exchange.o: %.o: %.c %.h \
+  logger.h network.h protocol.h
+
+#
+# Library
+#
+mongoose.o: %.o: %.c %.h
 
 clean:
 	rm -f $(target) $(objects)

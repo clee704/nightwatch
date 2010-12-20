@@ -260,7 +260,7 @@ static void handle_registered_agent(const struct in_conn *conn,
         goto close;
     }
     agent->fd1 = conn->fd;
-    set_sockaddr_in(&sa, AF_INET, 4444, agent->ip.s_addr);
+    set_sockaddr_in(&sa, AF_INET, listening_port_on_agent, agent->ip.s_addr);
     agent->fd2 = connect_to(SOCK_STREAM,
                             (struct sockaddr *) &sa,
                             sizeof(struct sockaddr_in));
