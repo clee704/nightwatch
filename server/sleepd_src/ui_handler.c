@@ -104,7 +104,7 @@ static void handle_requests(int fd)
         buf.chars[n] = 0;
         if (parse_request(buf.chars, request)) {
             WARNING("invalid request");
-            send_respond(fd, 400, NULL, &buf);
+            send_response(fd, 400, NULL, &buf);
             continue;
         }
         switch (request->method) {
@@ -112,14 +112,14 @@ static void handle_requests(int fd)
         case SUSP:
             if (ether_aton_r(request->uri, &mac) == NULL) {
                 WARNING("URI not a MAC address: %s", request->uri);
-                send_respond(fd, 404, NULL, &buf);
+                send_response(fd, 404, NULL, &buf);
                 break;
             }
             if (request->method == RSUM)
                 status = resume(&mac);
             else // req.method == SUSP 
                 status = suspend(&mac, &buf);
-            send_respond(fd, status, NULL, &buf);
+            send_response(fd, status, NULL, &buf);
             break; 
         case GETA:
             data = serialize_agent_list();
@@ -127,11 +127,11 @@ static void handle_requests(int fd)
                 WARNING("serialize_agent_list() failed");
                 break;
             }
-            send_respond(fd, 200, data, &buf);
+            send_response(fd, 200, data, &buf);
             free(data);
             break;
         default:
-            send_respond(fd, 501, NULL, &buf);
+            send_response(fd, 501, NULL, &buf);
             break;
         }
     }

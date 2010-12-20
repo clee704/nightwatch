@@ -24,7 +24,7 @@ void send_request(int fd, int method, const char *uri, const char *data,
 /**
  * TODO documentate
  */
-void send_respond(int fd, int status, const char *data,
-                  struct message_buffer *);
+void send_response(int fd, int status, const char *data,
+                   struct message_buffer *);
 
 #endif /* MESSAGE_EXCHANGE_H */
