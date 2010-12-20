@@ -17,24 +17,13 @@
 
 #define BACKLOG_SIZE 64
 #define UDP_PATH "/tmp/nitchsocket"
-/*
-int main()
-{
-			struct ether_addr hwaddr;
-			struct in_addr  ipaddr;
-			get_hwaddr(&hwaddr);
-			get_ipaddr(&ipaddr);
-			send_poison_packet(&ipaddr,&hwaddr, NULL);
+void get_option(int, char**);
+void initialize();
 
-}
-*/
 int make_connect(char *, int);
 void go_to_sleep();
-time_t sleep_time;
-void read_config();
 void send_host_info(int);
 void send_ok(int);
-void initialize();
 void *sleep_listener();
 void *request_handler();
 void *time_stamper();
@@ -42,18 +31,20 @@ void request(int, int, char *, struct request *);
 void respond(int, int, char *, struct response *);
 
 #define connection_retry_num 10
-char server_ip[100];
+time_t sleep_time;
+char *server_ip;
 int server_port;
 int socket_response;
 int socket_request;
 int sock;
 pthread_t p_thread[3];
-int
-main ()
-{
-	daemonize("nitch-agentd");
 
-	read_config();
+int
+main (int argc, char **argv)
+{
+	get_option(argc, argv);
+
+	daemonize("nitch-agentd");
 
 	struct sockaddr_in addr;
 	set_sockaddr_in(&addr, AF_INET, 4444, INADDR_ANY);
@@ -84,6 +75,15 @@ main ()
 	close(sock);
 	exit(EXIT_SUCCESS);
 
+}
+void
+get_option(int argc, char **argv)
+{
+	if(argc < 3){
+		printf("usage:\nnitch-agentd [proxy-ip] [port]\n");
+	}
+	server_ip = argv[1];
+	server_port = atoi(argv[2]);
 }
 void
 initialize()
@@ -234,23 +234,6 @@ send_host_info(int fd)
 	write(fd, buf, 200);
 	syslog(LOG_DEBUG, "name and hw are sent %s",buf);
 	//request(fd, INFO, buf, &req);
-}
-void
-read_config()
-{
-	char buf[100];
-	FILE *conf = fopen("/etc/nitch_agent.conf", "r");
-	if ( conf == NULL ) {
-		syslog(LOG_ERR, "can't open configuration file.");
-		exit(EXIT_FAILURE);
-	}
-	else{
-		fgets(buf, 100, conf);
-		strncpy(server_ip, buf, strlen(buf)-1);
-		fgets(buf, 100, conf);
-		server_port = atoi(buf);
-		syslog(LOG_INFO, "use %s on port %d", server_ip, server_port);
-	}
 }
 
 int
