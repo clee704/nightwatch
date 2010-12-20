@@ -68,7 +68,7 @@ struct agent *find_agent_by_mac(struct agent_list *,
 /**
  * TODO documentate
  */
-int add_new_agent(struct agent_list *, const struct agent *);
+int add_new_agent(struct agent_list *, struct agent *);
 
 /**
  * TODO documentate

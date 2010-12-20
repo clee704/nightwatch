@@ -18,14 +18,13 @@ struct message_buffer {
 /**
  * TODO documentate
  */
-void request(int fd, int method, struct message_buffer *);
+void send_request(int fd, int method, const char *uri, const char *data,
+                  struct message_buffer *);
 
 /**
  * TODO documentate
  */
-void respond(int fd, int status, struct message_buffer *);
-
-//void request_with_uri();
-//void respond_with_data();
+void send_respond(int fd, int status, const char *data,
+                  struct message_buffer *);
 
 #endif /* MESSAGE_EXCHANGE_H */

@@ -60,15 +60,15 @@ int set_sockaddr_un(struct sockaddr_un *un, const char *path)
 
 int write_string(int fd, const char *str)
 {
-    size_t chars = strlen(str);
+    size_t len = strlen(str);
     ssize_t n;
 
     do {
-        n = write(fd, str, chars);
+        n = write(fd, str, len);
         if (n == -1)
             return -1;
         str += n;
-        chars -= n;
-    } while (chars > 0);
+        len -= n;
+    } while (len > 0);
     return 0;
 }
