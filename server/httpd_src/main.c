@@ -76,7 +76,7 @@ static void get_commandline_options(int argc, char **argv,
     const char *document_root = DEFAULT_DOCUMENT_ROOT;
     const char *listening_ports = DEFAULT_LISTENING_PORTS;
     const char *error_log_file = DEFAULT_ERROR_LOG_FILE;
-    int c, i;
+    int c;
 
     *pid_file = DEFAULT_PID_FILE;
     *sock_file = DEFAULT_SOCKET;
@@ -103,14 +103,13 @@ static void get_commandline_options(int argc, char **argv,
     }
 
     // Set options for mongoose
-    i = 0;
-    mg_options[i++] = "document_root";
-    mg_options[i++] = document_root;
-    mg_options[i++] = "listening_ports";
-    mg_options[i++] = listening_ports;
-    mg_options[i++] = "error_log_file";
-    mg_options[i++] = error_log_file;
-    mg_options[i++] = NULL;
+    *mg_options++ = "document_root";
+    *mg_options++ = document_root;
+    *mg_options++ = "listening_ports";
+    *mg_options++ = listening_ports;
+    *mg_options++ = "error_log_file";
+    *mg_options++ = error_log_file;
+    *mg_options++ = NULL;
 }
 
 static void display_help_and_exit()
