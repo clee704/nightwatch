@@ -2,9 +2,11 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 #include "ajax_handler.h"
 #include "logger.h"
+#include "network.h"
 #include "message_exchange.h"
 #include "mongoose.h"
 
@@ -12,13 +14,11 @@
 
 static void handle_simple_message(struct mg_connection *,
                                   const struct mg_request_info *,
-                                  const char *method);
-static void handle_message(struct mg_connection *,
-                           const struct mg_request_info *,
-                           const char *method);
+                                  enum method method);
+static void print_device_list(struct mg_connection *, char *data);
 
 static int connect_to_proxy();
-static void print_response(struct mg_connection *, const char *message);
+static void send_ajax_response(struct mg_connection *, int status);
 static void mg_get_qsvar(const struct mg_request_info *,
 			 const char *name,
 			 char *buffer, size_t max_len);
@@ -38,120 +38,206 @@ void ajax_set_socket_file(const char *socket_file)
 void ajax_resume(struct mg_connection *conn,
                  const struct mg_request_info *request_info)
 {
-    handle_simple_message(conn, request_info, "RSUM");
+    handle_simple_message(conn, request_info, RSUM);
 }
 
 void ajax_suspend(struct mg_connection *conn,
                   const struct mg_request_info *request_info)
 {
-    handle_simple_message(conn, request_info, "SUSP");
-}
-
-void ajax_device_list(struct mg_connection *conn,
-                      const struct mg_request_info *unused)
-{
-    unused = unused;
+    handle_simple_message(conn, request_info, SUSP);
 }
 
 static void handle_simple_message(struct mg_connection *conn,
                                   const struct mg_request_info *request_info,
-                                  const char *method)
-{
-}
-
-static void handle_message(struct mg_connection *conn,
-                           const struct mg_request_info *request_info,
-                           const char *method)
+                                  enum method method)
 {
     struct message_buffer buf;
-    char buffer[1000];
-    char device_id[MAX_URI_LEN] = {0};
+    struct response *response = &buf.u.response;
     int sock, n;
+    char device_id[MAX_URI_LEN] = {0};
 
     // Get the argument
     mg_get_qsvar(request_info, "deviceId", device_id, sizeof(device_id));
     if (strlen(device_id) == 0) {
-        ajax_print_response(conn, "deviceId must be specified");
+        send_ajax_response(conn, 400);
         return;
     }
 
     // Connect to the proxy
-    sock = connect_to(sock_file);
+    sock = connect_to_proxy(sock_file);
     if (sock < 0) {
         WARNING("can't connect to %s: %m", sock_file);
         WARNING("make sure the sleep proxy (nitch-sleepd) is running");
-        ajax_print_response(conn, "internal server error");
+        send_ajax_response(conn, 500);
         return;
     }
 
-    // Make a request
-    n = snprintf(buffer, sizeof(buffer), "%s %s\n", method, device_id);
-    if (n < 0 || (int) sizeof(buffer) < n) {
-        ajax_print_response(conn, "internal server error");
-        return;
-    }
-
-    // Send the request to the proxy
-    if (write(sock, buffer, n) != n) {
-        WARNING("can't write: %m");
-        ajax_print_response(conn, "internal server error");
-        return;
-    }
+    // Send the request
+    send_request(sock, method, device_id, NULL, &buf);
 
     // Read the response from the proxy
-    n = read(sock, buffer, sizeof(buffer) - 1);
+    n = read(sock, buf.chars, sizeof(buf.chars) - 1);
     if (n <= 0) {
         if (n == 0)
-            NOTICE("unexpected EOF from the proxy");
+            WARNING("unexpected EOF from the proxy");
         else
             WARNING("can't read: %m");
-        ajax_print_response(conn, "internal server error");
+        send_ajax_response(conn, 500);
         return;
     }
-    buffer[n] = 0;
+    buf.chars[n] = 0;
+    if (parse_response(buf.chars, response)) {
+        WARNING("invalid response");
+        send_ajax_response(conn, 500);
+        return;
+    }
 
     // Close the connection to the proxy
     if (close(sock))
         WARNING("can't close the socket: %m");
 
-    //
-    // TODO+ parse the response into a JSON object
-    //
-    DEBUG("%s", buffer);
-    ajax_print_response(conn, "ok");
+    switch (response->status) {
+    case 200:
+    case 400:
+    case 404:
+    case 409:
+    case 500:
+        send_ajax_response(conn, response->status);
+        break;
+    default:
+        WARNING("got unexpected response status code: %d", response->status);
+        send_ajax_response(conn, 500);
+        return;
+    }
+}
+
+void ajax_device_list(struct mg_connection *conn,
+                      const struct mg_request_info *unused)
+{
+    struct message_buffer buf;
+    struct response *response = &buf.u.response;
+    char *data = response->data;
+    int sock, n;
+
+    // Connect to the proxy
+    sock = connect_to_proxy(sock_file);
+    if (sock < 0) {
+        WARNING("can't connect to %s: %m", sock_file);
+        WARNING("make sure the sleep proxy (nitch-sleepd) is running");
+        send_ajax_response(conn, 500);
+        return;
+    }
+
+    // Send the request
+    send_request(sock, GETA, NULL, NULL, &buf);
+
+    // Read the response from the proxy
+    n = read(sock, buf.chars, sizeof(buf.chars) - 1);
+    if (n <= 0) {
+        if (n == 0)
+            WARNING("unexpected EOF from the proxy");
+        else
+            WARNING("can't read: %m");
+        send_ajax_response(conn, 500);
+        return;
+    }
+    buf.chars[n] = 0;
+    if (parse_response(buf.chars, response)) {
+        WARNING("invalid response");
+        send_ajax_response(conn, 500);
+        return;
+    }
+
+    // Close the connection to the proxy
+    if (close(sock))
+        WARNING("can't close the socket: %m");
+
+    mg_printf(conn, "%s", ajax_reply_start);
+    mg_printf(conn, "{\"status\":200,\"message\":\"ok\",\"data\":");
+    print_device_list(conn, data);
+    mg_printf(conn, "}");
+    unused = unused;
+}
+
+static void print_device_list(struct mg_connection *conn, char *data)
+{
+    const char *keys[][2] = {
+        {"hostname", "string"},
+        {"ip", "string"},
+        {"mac", "string"},
+        {"state", "string"},
+        {"monitoredSince", "number"},
+        {"totalUptime", "number"},
+        {"sleepTime", "number"},
+        {"totalDowntime", "number"}
+    };
+    char *s1, *s2;
+    const char *key, *type;
+    char c;
+    int i, j;
+
+    s1 = data;
+    s2 = data;
+    i = 0;
+    j = 0;
+    mg_printf(conn, "[");
+    while ((c = *s2) != 0) {
+        switch (c) {
+        case ',':
+        case '\n':
+            *s2 = 0;
+            key = keys[j][0];
+            type = keys[j][1];
+            mg_printf(conn, j == 0 ? (i == 0 ? "{" : ",{") : ",");
+            mg_printf(conn, "\"%s\":", key);
+            if (strcmp(type, "string") == 0)
+                mg_printf(conn, "\"%s\"", s1);
+            else 
+                mg_printf(conn, "%s", s1);
+            if (c == ',')
+                ++j;
+            else {
+                mg_printf(conn, "}");
+                ++i;
+                j = 0;
+            }
+            s1 = s2 + 1;
+            break;
+        }
+        ++s2;
+    }
+    mg_printf(conn, "]");
 }
 
 static int connect_to_proxy()
 {
-    int sock, n;
     struct sockaddr_un addr;
-    socklen_t addr_len;
+    int addr_len;
 
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    n = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", sock_file);
-    if (n < 0 || (int) sizeof(addr.sun_path) < n)
+    addr_len = set_sockaddr_un(&addr, sock_file);
+    if (addr_len < 0)
         return -1;
-    addr_len = offsetof(struct sockaddr_un, sun_path) + (socklen_t) n;
-
-    sock = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (sock < 0)
-        return -1;
-    if (connect(sock, (struct sockaddr *) &addr, addr_len)) {
-        close(sock);
-        return -1;
-    }
-    return sock;
+    return connect_to(SOCK_STREAM,
+                      (struct sockaddr *) &addr,
+                      sizeof(struct sockaddr_un));
 }
 
-static void print_response(struct mg_connection *conn, const char *message)
+static void send_ajax_response(struct mg_connection *conn, int status)
 {
-    int success;
+    const char *message;
 
-    success = strncmp(message, "ok", 2) == 0;
+    switch (status) {
+    case 200: message = "ok"; break;
+    case 400: message = "bad request"; break;
+    case 404: message = "no such device"; break;
+    case 409: message = "already up, resuming or suspended"; break;
+    case 500: message = "internal server error"; break;
+    default:
+        WARNING("invalid status code: %d", status);
+        return;
+    }
     mg_printf(conn, "%s", ajax_reply_start);
-    mg_printf(conn, "{\"success\": %s, \"message\": \"%s\"}",
-              success ? "true" : "false", message);
+    mg_printf(conn, "{\"status\":%d,\"message\":\"%s\"}", status, message);
 }
 
 static void mg_get_qsvar(const struct mg_request_info *request_info,

@@ -17,6 +17,7 @@ struct message_buffer {
 
 /**
  * TODO documentate
+ * error checking how-to
  */
 void send_request(int fd, int method, const char *uri, const char *data,
                   struct message_buffer *);

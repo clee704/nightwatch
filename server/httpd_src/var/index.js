@@ -86,7 +86,8 @@ var updateDeviceList = (function () {
         get('/ajax/devicelist', fillTable);
     };
 
-    function fillTable(deviceList) {
+    function fillTable(json) {
+        var deviceList = json.data;
         deviceListTbody.detach();
         var rows = deviceListTbody.find('tr');
         var n = Math.min(rows.length, deviceList.length);
@@ -121,8 +122,8 @@ var updateDeviceList = (function () {
         deviceListTable.append(deviceListTbody);
     }
 
-    function toDateTimeString(milliseconds) {
-        var d = new Date(milliseconds);
+    function toDateTimeString(seconds) {
+        var d = new Date(seconds * 1000);
         var year = d.getFullYear();
         var month = zeroPad2(d.getMonth() + 1);
         var date = zeroPad2(d.getDate());
@@ -135,11 +136,11 @@ var updateDeviceList = (function () {
         return ymd.join('-') + ' ' + hms.join(':') + '+' + timezoneOffset;
     }
 
-    function toTimeString(milliseconds) {
+    function toTimeString(seconds) {
         // The bitwise OR operator "|" here substitutes for Math.floor().
         // Be cautious: It only works for a number N such that
         // -2**31-1 < N < 2**31.
-        var t = milliseconds / 1000 | 0;
+        var t = seconds;
         var seconds = zeroPad2(t % 60 | 0); t = t / 60 | 0;
         var minutes = zeroPad2(t % 60 | 0); t = t / 60 | 0;
         var hours = zeroPad2(t % 24 | 0); t = t / 24 | 0;
@@ -150,7 +151,8 @@ var updateDeviceList = (function () {
     }
 
     function toPercentage3(a, b) {
-        return new Number(a / b * 100).toPrecision(3);
+        var n = new Number(b == 0 ? 0 : a / b * 100);
+        return n.toPrecision(3);
     }
 
     function zeroPad2(v) {

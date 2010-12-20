@@ -41,7 +41,7 @@
  *     request to the agent.
  */
 struct request {
-    enum METHOD { GETA, RSUM, SUSP, PING, INFO, NTFY } method;
+    enum method { GETA, RSUM, SUSP, PING, INFO, NTFY } method;
     char uri[MAX_URI_LEN];
     char data[MAX_DATA_LEN];
     int has_uri:1;
