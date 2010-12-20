@@ -6,6 +6,17 @@
 
 #define LOGGER_PREFIX "[agent] "
 
+const char *agent_state_to_string(const struct agent *agent)
+{
+    switch (agent->state) {
+    case UP: return "up";
+    case SUSPENDED: return "suspended";
+    case RESUMING: return "resuming";
+    case DOWN: return "down";
+    default: return NULL;
+    }
+}
+
 void lock_agent(struct agent *agent)
 {
     pthread_mutex_lock(&agent->mutex);

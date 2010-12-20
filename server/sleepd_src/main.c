@@ -20,42 +20,48 @@
 
 #define DEFAULT_PID_FILE "/var/run/nitch-sleepd.pid"
 #define DEFAULT_SOCK_FILE "/var/run/nitch-sleepd.sock"
-#define DEFAULT_PORT 4444
+#define DEFAULT_LISTENING_PORT 4444
+#define DEFAULT_LISTENING_PORT_ON_AGENT 4444
 
 static void get_commandline_options(int argc, char **argv,
-                                    const char **, const char **, int *);
+                                    const char **, const char **,
+                                    int *, int *);
 static void display_help_and_exit(void);
 static void cleanup(void);
 static void sigterm(int signum);
 
 static void exit_if_not_root(const char *progname);
 static void init(const char *pid_file);
-static void start(int port, const char *sock_file);
+static void start(int listening_port, int listening_port_on_agent,
+                  const char *sock_file);
 
 static const char *pid_file;
 static const char *sock_file;
 
 int main(int argc, char **argv)
 {
-    int port;
+    int port1;
+    int port2;
 
     exit_if_not_root(program_invocation_short_name);
-    get_commandline_options(argc, argv, &pid_file, &sock_file, &port);
+    get_commandline_options(argc, argv, &pid_file, &sock_file, &port1, &port2);
     daemonize(program_invocation_short_name);
     init(pid_file);
-    start(port, sock_file);
+    start(port1, port2, sock_file);
     return 0;
 }
 
 static void get_commandline_options(int argc, char **argv,
                                     const char **pid_file,
                                     const char **sock_file,
-                                    int *port)
+                                    int *port1,
+                                    int *port2)
 {
     // TODO impl
     *pid_file = DEFAULT_PID_FILE;
     *sock_file = DEFAULT_SOCK_FILE;
-    *port = DEFAULT_PORT;
+    *port1 = DEFAULT_LISTENING_PORT;
+    *port2 = DEFAULT_LISTENING_PORT_ON_AGENT;
 }
 
 static void display_help_and_exit()
@@ -97,7 +103,7 @@ static void init(const char *pid_file)
         WARNING("can't catch SIGTERM: %m");
 }
 
-static void start(int port, const char *sock_file)
+static void start(int port1, int port2, const char *sock_file)
 {
     struct agent_list *list;
     pthread_t tid1, tid2, tid3;
@@ -107,7 +113,7 @@ static void start(int port, const char *sock_file)
         CRITICAL("can't create an agent list");
         exit(2);
     }
-    if (start_agent_handler(&tid1, list, port)) {
+    if (start_agent_handler(&tid1, list, port1, port2)) {
         CRITICAL("can't start the agent handler");
         exit(2);
     }
