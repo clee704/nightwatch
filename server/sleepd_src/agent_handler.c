@@ -121,7 +121,7 @@ static void *handle_agent(void *connection)
     struct agent *agent;
 
     status = read_info(conn->fd, &buf, &hostname, &mac);
-    send_respond(conn->fd, status, NULL, &buf);
+    send_response(conn->fd, status, NULL, &buf);
     if (status != 200) {
         close_connection(conn->fd);
         return NULL;
@@ -322,22 +322,23 @@ static void handle_requests(struct agent *agent)
         buf.chars[n] = 0;
         if (parse_request(buf.chars, request)) {
             WARNING("invalid request from %s", ip_str);
-            send_respond(agent->fd1, 400, NULL, &buf);
+            send_response(agent->fd1, 400, NULL, &buf);
             break;
         }
         switch (request->method) {
         case PING:
-            send_respond(agent->fd1, 200, NULL, &buf);
+            DEBUG("got PING");
+            send_response(agent->fd1, 200, NULL, &buf);
             break;
         case NTFY:
-            send_respond(agent->fd1, 200, NULL, &buf);
+            send_response(agent->fd1, 200, NULL, &buf);
             INFO("closing connections with %s", ip_str);
             close_connections_with_agent(agent, SUSPENDED);
             if (send_poison_packet(&agent->ip, NULL, NULL))
                 WARNING("send_poison_pakcet() failed: %m");
             break;
         default:
-            send_respond(agent->fd1, 501, NULL, &buf);
+            send_response(agent->fd1, 501, NULL, &buf);
             break;
         }
     }

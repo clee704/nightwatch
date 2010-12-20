@@ -35,8 +35,8 @@ void send_request(int fd, int method, const char *uri, const char *data,
         WARNING("write() failed: %m");
 }
 
-void send_respond(int fd, int status, const char *data,
-                  struct message_buffer *buf)
+void send_response(int fd, int status, const char *data,
+                   struct message_buffer *buf)
 {
     int n;
     const char *msg = "";
