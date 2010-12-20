@@ -24,8 +24,10 @@
 #define DEFAULT_LISTENING_PORT_ON_AGENT 4444
 
 static void get_commandline_options(int argc, char **argv,
-                                    const char **, const char **,
-                                    int *, int *);
+                                    const char **pid_file,
+                                    const char **sock_file,
+                                    int *listening_port,
+                                    int *listening_port_on_agent);
 static void display_help_and_exit(void);
 static void cleanup(void);
 static void sigterm(int signum);
