@@ -28,6 +28,7 @@ void send_ok(int);
 void *sleep_listener();
 void *request_handler();
 void *time_stamper();
+void *still_alive();
 void request(int, int, char *, struct request *);
 void respond(int, int, char *, struct response *);
 
@@ -38,7 +39,13 @@ int server_port;
 int socket_response;
 int socket_request;
 int sock;
-pthread_t p_thread[3];
+/*
+ * p_thread[0] sleep_listener
+ * p_thread[1] request_handler
+ * p_thread[2] still_alive
+ * p_thread[3] time_stamper
+ */
+pthread_t p_thread[4];
 
 int
 main (int argc, char **argv)
@@ -59,13 +66,14 @@ main (int argc, char **argv)
 
 	initialize();
 
-	if ( pthread_create(&p_thread[2], NULL, time_stamper, NULL)){
-		syslog(LOG_ERR, "daemon can't make thread");
+	if ( pthread_create(&p_thread[3], NULL, time_stamper, NULL)){
+		syslog(LOG_ERR, "can't make thread");
 	}
 
 	pthread_join(p_thread[0], NULL);
 	pthread_join(p_thread[1], NULL);
 	pthread_join(p_thread[2], NULL);
+	pthread_join(p_thread[3], NULL);
 
 
 	close(STDIN_FILENO);
@@ -82,6 +90,7 @@ get_option(int argc, char **argv)
 {
 	if(argc < 3){
 		printf("usage:\nnitch-agentd [proxy-ip] [port]\n");
+		exit(EXIT_FAILURE);
 	}
 	server_ip = argv[1];
 	server_port = atoi(argv[2]);
@@ -119,6 +128,9 @@ initialize()
 	if ( pthread_create(&p_thread[1], NULL, request_handler, NULL)){
 		syslog(LOG_ERR, "daemon can't make thread");
 	}
+	if ( pthread_create(&p_thread[2], NULL, still_alive, NULL)){
+		syslog(LOG_ERR, "daemon can't make thread");
+	}
 
 
 	///initialize time stamp
@@ -149,6 +161,14 @@ time_stamper()
 	}
 }
 void *
+still_alive()
+{
+	while(1){
+		write(socket_request, "PING\n", 5);
+		sleep(5);
+	}
+}
+void *
 request_handler()
 {
 	struct response res;
@@ -158,6 +178,8 @@ request_handler()
 	while(1){
 		if(read(socket_response, req_buf, MAX_REQUEST_STRLEN)==0){
 			syslog(LOG_DEBUG, "return value of read is 0");
+			//prepare for sleeping
+			pthread_cancel(p_thread[2]);
 			close(socket_response);
 			close(socket_request);
 			break;
