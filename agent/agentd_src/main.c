@@ -51,31 +51,7 @@ pthread_t p_thread[3];
 int
 main ()
 {
-	pid_t pid, sid;
-
-	if(geteuid() != 0) {
-		fprintf(stderr, "%s: must be run as root or setuid root\n", "nitch_agent");
-		exit(EXIT_SUCCESS);
-	}
-	//initialize to make daemon process	
-	pid = fork();
-	if (pid < 0) {
-		syslog(LOG_ERR, "daemon initialize error");
-		exit(EXIT_FAILURE);
-	}
-	if (pid > 0) {
-		exit(EXIT_SUCCESS);
-	}
-	umask(0);
-	sid = setsid();
-	if (sid < 0) {
-		syslog(LOG_ERR, "daemon initialize error");
-		exit(EXIT_FAILURE);
-	}
-	if ((chdir("/")) < 0) {
-		syslog(LOG_ERR, "daemon initialize error");
-		exit(EXIT_FAILURE);
-	}
+	daemonize("nitch-agentd");
 
 	read_config();
 
