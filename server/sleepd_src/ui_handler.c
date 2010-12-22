@@ -62,6 +62,7 @@ int start_ui_handler(pthread_t *tid,
     }
     list = agent_list;
     if (pthread_create(tid, NULL, accept_ui, NULL)) {
+        close(sock);
         ERROR("can't create a thread: %m");
         return -1;
     }
@@ -215,15 +216,15 @@ static char *serialize_agent_list()
         inet_ntop(AF_INET, &agent->ip, ip_str, INET_ADDRSTRLEN);
         ether_ntoa_r(&agent->mac, mac_str);
         n = snprintf(table + i, size - i,
-                     "%s,%s,%s,%s,%d,%d,%d,%d\n",
+                     "%s,%s,%s,%s,%u,%u,%u,%u\n",
                      agent->hostname,
                      ip_str,
                      mac_str,
                      agent_state_to_string(agent),
-                     agent->monitored_since,
-                     agent->total_uptime,
-                     agent->total_downtime,
-                     agent->sleep_time);
+                     (unsigned int) agent->monitored_since,
+                     (unsigned int) agent->total_uptime,
+                     (unsigned int) agent->sleep_time,
+                     (unsigned int) agent->total_downtime);
         if (n < 0) {
             WARNING("snprintf() failed: %m");
             free(table);

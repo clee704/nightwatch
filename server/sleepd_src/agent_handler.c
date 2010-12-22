@@ -41,6 +41,7 @@ static void handle_new_agent(const struct in_conn *,
                              const struct ether_addr *);
 static void handle_registered_agent(const struct in_conn *, struct agent *);
 static void handle_requests(struct agent *);
+static void update_times(struct agent *);
 static void close_connection(int fd);
 static void close_connections_with_agent(struct agent *, int state);
 
@@ -66,6 +67,7 @@ int start_agent_handler(pthread_t *tid,
     listening_port_on_agent = port2;
     list = agent_list;
     if (pthread_create(tid, NULL, accept_agents, NULL)) {
+        close(sock);
         ERROR("can't create a thread: %m");
         return -1;
     }
@@ -209,8 +211,9 @@ static void handle_new_agent(const struct in_conn *conn,
     agent->state = UP;
     agent->monitored_since = time(NULL);
     agent->total_uptime = 0;
-    agent->total_downtime = 0;
     agent->sleep_time = 0;
+    agent->total_downtime = 0;
+    agent->_last_update_time = agent->monitored_since;
     agent->fd1 = conn->fd;
     set_sockaddr_in(&sa, AF_INET, listening_port_on_agent, agent->ip.s_addr);
     agent->fd2 = connect_to(SOCK_STREAM,
@@ -306,8 +309,10 @@ static void handle_requests(struct agent *agent)
     char ip_str[INET_ADDRSTRLEN];
 
     while (1) {
-        while (agent->state != UP)
+        while (agent->state != UP) {
+            update_times(agent);
             sleep(1);
+        }
         n = read(agent->fd1, buf.chars, sizeof(buf.chars) - 1);
         inet_ntop(AF_INET, &agent->ip, ip_str, INET_ADDRSTRLEN);
         if (n < 0) {
@@ -327,7 +332,7 @@ static void handle_requests(struct agent *agent)
         }
         switch (request->method) {
         case PING:
-            DEBUG("got PING");
+            update_times(agent);
             send_response(agent->fd1, 200, NULL, &buf);
             break;
         case NTFY:
@@ -342,6 +347,30 @@ static void handle_requests(struct agent *agent)
             break;
         }
     }
+}
+
+static void update_times(struct agent *agent)
+{
+    time_t now = time(NULL);
+    time_t d = now - agent->_last_update_time;
+
+    switch (agent->state) {
+    case UP:
+    case RESUMING:
+        agent->total_uptime += d;
+        break;
+    case SUSPENDED:
+        agent->total_uptime += d;
+        agent->sleep_time += d;
+        break;
+    case DOWN:
+        agent->total_downtime += d;
+        break;
+    default:
+        WARNING("the agent is in an illegal state %d", agent->state);
+        break;
+    }
+    agent->_last_update_time = now;
 }
 
 static void close_connection(int fd)

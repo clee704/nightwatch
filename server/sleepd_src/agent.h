@@ -13,8 +13,9 @@ struct agent {
     enum state { UP, SUSPENDED, RESUMING, DOWN } state;
     time_t monitored_since;
     time_t total_uptime;
-    time_t total_downtime;
     time_t sleep_time;
+    time_t total_downtime;
+    time_t _last_update_time;
     int fd1;  // agent requests something and sleep proxy respond
     int fd2;  // sleep proxy requests something and agent respond
     pthread_mutex_t mutex;
