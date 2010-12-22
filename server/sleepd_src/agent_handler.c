@@ -314,7 +314,7 @@ static void handle_requests(struct agent *agent)
             update_times(agent);
             sleep(1);
             sleep_counter = (sleep_counter + 1) % 15;
-            if (sleep_counter == 0)
+            if (agent->state == SUSPENDED && sleep_counter == 0)
                 if (send_poison_packet(&agent->ip, NULL, NULL))
                     WARNING("send_poison_pakcet() failed: %m");
         }
