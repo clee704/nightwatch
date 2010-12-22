@@ -285,7 +285,6 @@ make_connect(char *server, int port)
 void
 go_to_sleep ()
 {
-	sleeping = 1;
 	//use pm-suspend command to sleep
 	syslog(LOG_NOTICE, "this agent machine is going to sleep");
 	system("pm-suspend");
@@ -318,6 +317,7 @@ sleep_listener()
 		reporter_sockfd = accept(my_sockfd, (struct sockaddr *)&reporter_addr, &clilen);
 
 		syslog(LOG_NOTICE, "got sleep signal. send notification message to server");
+		sleeping = 1;
 
 		char req_buf[MAX_REQUEST_STRLEN];
 		struct request req;
