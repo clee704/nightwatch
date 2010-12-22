@@ -17,37 +17,46 @@ function refresh() {
     }, this), 1000);
 }
 
-function resume(deviceId, state, name) {
+function resume(deviceId, state, name, callback) {
     if (state === 'up' || state === 'resuming')
         alert(name + ' is already up or resuming.');
     else if (confirm('Resume ' + name + '?'))
-        get('/ajax/resume?deviceId=' + deviceId);
+        get('/ajax/resume?deviceId=' + deviceId, callback);
 }
 
-function suspend(deviceId, state, name) {
+function suspend(deviceId, state, name, callback) {
     if (state !== 'up')
         alert(name + ' is not up.');
     else if (confirm('Suspend ' + name + '?'))
-        get('/ajax/suspend?type=suspend&deviceId=' + deviceId);
+        get('/ajax/suspend?deviceId=' + deviceId, callback);
 }
 
 function enterDemoModeIfHashMatches() {
     if (location.hash !== '#demo')
-        return;
+        return false;
     $('#demo').attr('href', '.').html('Exit Demo Mode');
     $.getScript('demo.js', function () {
         get = window.demo.get;
-        updateDeviceList();
+        updateDeviceListPeriodically();
     });
+    return true;
 }
 
 function forEachBoxChecked(callback) {
+    function createNotifier(n, callback) {
+        return function () {
+            if (--n == 0) {
+                callback();
+            }
+        }
+    }
     return function () {
         var checkboxes = deviceListTbody.find('input:checked');
         var n = checkboxes.length;
         if (n === 0)
             return;
         updateDeviceList();
+        var notify = createNotifier(n, updateDeviceList);
         for (var i = 0; i < n; ++i) {
             var c = checkboxes[i];
             var d = $.data(c, 'deviceInfo');
@@ -56,9 +65,8 @@ function forEachBoxChecked(callback) {
             // Define human-friendly name for dialog boxes
             var name = (d.hostname ? (d.hostname + ' ') : '')
                 + '(' + d.ip + ')';
-            callback(deviceId, state, name);
+            callback(deviceId, state, name, notify);
         }
-        updateDeviceList();
     };
 }
 
@@ -202,8 +210,8 @@ window.onhashchange = enterDemoModeIfHashMatches;
 
 // When the DOM is ready
 $(function () {
-    updateDeviceListPeriodically();  // every 15 seconds
-    enterDemoModeIfHashMatches();
+    if (!enterDemoModeIfHashMatches())
+        updateDeviceListPeriodically();  // every 15 seconds
 });
 
 

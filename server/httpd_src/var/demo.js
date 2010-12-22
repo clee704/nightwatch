@@ -10,12 +10,12 @@ function EnvironmentSimulator(devices) {
 
     /* @method */
     function start() {
-        time = Date.now();
+        time = Date.now() / 1000 | 0;
         setInterval(simulate, 1000);
     }
 
     function simulate() {
-        var currTime = Date.now();
+        var currTime = Date.now() / 1000 | 0;
         var interval = currTime - time;
         for (var i = 0, n = devices.length; i < n; ++i) {
             var d = devices[i];
@@ -89,7 +89,7 @@ function AjaxHandler(devices) {
     }
 
     function getDeviceList(queryString, callback) {
-        callback(devices);
+        callback({status: 200, message: 'ok', data: devices});
     }
 }
 
@@ -126,10 +126,10 @@ var mockFactory = new (function MockFactory() {
         var mac = rollEx(randomMac, pool.used.mac);
         var ip = rollEx(randomIp, pool.used.ip);
         var state = pick(pool.states);
-        var currTime = Date.now();
-        var duration = randomInt(0, 300 * 1e6);
+        var currTime = Date.now() / 1000 | 0;
+        var duration = randomInt(0, 300 * 1e3);
         var monitoredSince = currTime - duration;
-        var totalDowntime = randomInt(0, Math.min(20 * 1e6, duration));
+        var totalDowntime = randomInt(0, Math.min(20 * 1e3, duration));
         var totalUptime = duration - totalDowntime;
         var sleepTime = Math.floor(Math.random() * .95 * totalUptime);
         return new Device(hostname, mac, ip, state, monitoredSince,
@@ -184,13 +184,13 @@ var mockFactory = new (function MockFactory() {
         this.totalUptime = totalUptime;
         this.sleepTime = sleepTime;
         this.totalDowntime = totalDowntime;
-        this._resumeTime = randomInt(3500, 12500);
-        this._lastStateChange = Date.now();
+        this._resumeTime = randomInt(7, 15);
+        this._lastStateChange = Date.now() / 1000 | 0;
     }
 
     Device.prototype.changeState = function (state) {
         this.state = state;
-        this._lastStateChange = Date.now();
+        this._lastStateChange = Date.now() / 1000 | 0;
     }
 
     /* @constructor */
