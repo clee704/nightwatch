@@ -307,11 +307,16 @@ static void handle_requests(struct agent *agent)
     struct request *request = &buf.u.request;
     int n;
     char ip_str[INET_ADDRSTRLEN];
+    int sleep_counter = 0;
 
     while (1) {
         while (agent->state != UP) {
             update_times(agent);
             sleep(1);
+            sleep_counter = (sleep_counter + 1) % 15;
+            if (sleep_counter == 0)
+                if (send_poison_packet(&agent->ip, NULL, NULL))
+                    WARNING("send_poison_pakcet() failed: %m");
         }
         n = read(agent->fd1, buf.chars, sizeof(buf.chars) - 1);
         inet_ntop(AF_INET, &agent->ip, ip_str, INET_ADDRSTRLEN);
