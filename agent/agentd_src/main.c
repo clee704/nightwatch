@@ -39,6 +39,7 @@ int server_port;
 int socket_response;
 int socket_request;
 int sock;
+int sleeping = 0;
 /*
  * p_thread[0] sleep_listener
  * p_thread[1] request_handler
@@ -66,6 +67,9 @@ main (int argc, char **argv)
 
 	initialize();
 
+	if ( pthread_create(&p_thread[2], NULL, still_alive, NULL)){
+		syslog(LOG_ERR, "daemon can't make thread");
+	}
 	if ( pthread_create(&p_thread[3], NULL, time_stamper, NULL)){
 		syslog(LOG_ERR, "can't make thread");
 	}
@@ -128,9 +132,6 @@ initialize()
 	if ( pthread_create(&p_thread[1], NULL, request_handler, NULL)){
 		syslog(LOG_ERR, "daemon can't make thread");
 	}
-	if ( pthread_create(&p_thread[2], NULL, still_alive, NULL)){
-		syslog(LOG_ERR, "daemon can't make thread");
-	}
 
 
 	///initialize time stamp
@@ -145,7 +146,7 @@ time_stamper()
 	while(1){
 		sleep(1);
 		time(&now);
-		if(now - sleep_time > 5){
+		if(sleeping && now - sleep_time > 5){
 			syslog(LOG_DEBUG, "i slept");
 
 			struct ether_addr hwaddr;
@@ -155,6 +156,7 @@ time_stamper()
 			send_poison_packet(&ipaddr,&hwaddr, NULL);
 
 			initialize();
+			sleeping = 0;
 			//i slept
 		}
 		time(&sleep_time);
@@ -164,7 +166,8 @@ void *
 still_alive()
 {
 	while(1){
-		write(socket_request, "PING\n", 5);
+		if (!sleeping)
+			write(socket_request, "PING\n", 6);
 		sleep(5);
 	}
 }
@@ -282,6 +285,7 @@ make_connect(char *server, int port)
 void
 go_to_sleep ()
 {
+	sleeping = 1;
 	//use pm-suspend command to sleep
 	syslog(LOG_NOTICE, "this agent machine is going to sleep");
 	system("pm-suspend");
