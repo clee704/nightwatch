@@ -1,5 +1,6 @@
 
                        Nightwatch: a sleep proxy suite
+                   <https://github.com/clee704/nightwatch>
 
 Nightwatch is a set of programs to reduce overall power consumption of Linux
 deivces within LAN by sleeping the devices and waking them up only when needed.
