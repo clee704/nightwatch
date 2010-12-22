@@ -119,7 +119,7 @@ static void *monitor_packets(void *agent_list)
                     struct agent *agent = find_agent_by_ip( agentList, &(ip->ip_dst) );
                     if( agent != NULL && agent->state != UP)
                     {
-                        DEBUG("find agent");
+                        //DEBUG("find agent");
                         struct agent_syn *temp = (struct agent_syn *)malloc(sizeof(struct agent_syn));
                         temp->agent = agent;
                         temp->packet_size = size_ethernet + ntohs(ip->ip_len);
@@ -161,7 +161,7 @@ static int forward_syn_packet(struct agent_syn *agent_syn)
         sleep(1);
     }
 
-    DEBUG("forward_syn_packet");
+    //DEBUG("forward_syn_packet");
 
     sock = socket(PF_PACKET, SOCK_RAW, 0);
     if( sock < 0 )
