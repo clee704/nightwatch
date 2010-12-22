@@ -182,7 +182,7 @@ request_handler()
 		if(read(socket_response, req_buf, MAX_REQUEST_STRLEN)==0){
 			syslog(LOG_DEBUG, "return value of read is 0");
 			//prepare for sleeping
-			pthread_cancel(p_thread[2]);
+			//pthread_cancel(p_thread[2]);
 			close(socket_response);
 			close(socket_request);
 			break;
