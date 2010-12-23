@@ -1,3 +1,5 @@
+prefix = /usr/local
+
 target = nitch-httpd
 sources = main.c ajax_handler.c daemon.c network.c protocol.c \
   message_exchange.c mongoose.c
@@ -15,6 +17,13 @@ $(target): $(objects)
 
 clean:
 	rm -f $(target) $(objects)
+
+install:
+	install -d $(prefix)/bin
+	install -m 0755 $(target) $(prefix)/bin
+
+uninstall:
+	rm -f $(prefix)/bin/$(target)
 
 #
 # Objects
@@ -42,4 +51,4 @@ message_exchange.o: %.o: %.c %.h \
 #
 mongoose.o: %.o: %.c %.h
 
-.PHONY: all clean
+.PHONY: all clean install uninstall

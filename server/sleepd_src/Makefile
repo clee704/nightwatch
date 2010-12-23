@@ -1,3 +1,5 @@
+prefix = /usr/local
+
 target = nitch-sleepd
 sources = main.c agent.c agent_handler.c ui_handler.c packet_monitor.c \
   send_magic_packet.c resume_agent.c daemon.c network.c protocol.c \
@@ -16,6 +18,13 @@ $(target): $(objects)
 
 clean:
 	rm -f $(target) $(objects)
+
+install:
+	install -d $(prefix)/bin
+	install -m 0755 $(target) $(prefix)/bin
+
+uninstall:
+	rm -f $(prefix)/bin/$(target)
 
 #
 # Objects
@@ -54,4 +63,4 @@ message_exchange.o: %.o: %.c %.h \
 
 poison.o: %.o: %.c %.h
 
-.PHONY: all clean
+.PHONY: all clean install uninstall
