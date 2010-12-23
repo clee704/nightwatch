@@ -4,6 +4,9 @@
 struct in_addr;
 struct ether_addr;
 
+/**
+ * TODO documentate
+ */
 int send_poison_packet(const struct in_addr *, const struct ether_addr *,
                        const char *ifname);
 
