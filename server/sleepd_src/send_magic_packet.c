@@ -63,6 +63,9 @@ int send_magic_packet(const struct ether_addr *dst_addr, const char *ifname_in)
                (struct sockaddr *) &dst_sockaddr, sizeof(dst_sockaddr)) < 0)
         return -1;
 
+    if (close(sock))
+        return -1;
+
     return 0;
 }
 

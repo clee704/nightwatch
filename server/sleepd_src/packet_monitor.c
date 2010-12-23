@@ -170,13 +170,6 @@ static int forward_syn_packet(struct agent_syn *agent_syn)
         return -1;
     }
 
-
-    if( setuid(getuid()) < 0) {
-        //printf("setuid error\n");
-        return -1;
-    }
-
-
     // Make dst_sockaddr for sendto()
     {
         struct ifreq ifr;
@@ -204,6 +197,9 @@ static int forward_syn_packet(struct agent_syn *agent_syn)
         //printf("%d\n",agent_syn->packet_size);
         return -1;
     }
+
+    if (close(sock))
+        return -1;
 
     //printf("forwarding syn packet\n");
 

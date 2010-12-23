@@ -65,6 +65,9 @@ int send_poison_packet(const struct in_addr *ip,
                (struct sockaddr *) &dst_sockaddr, sizeof(dst_sockaddr)) < 0)
         return -1;
 
+    if (close(sock))
+        return -1;
+
     return 0;
 }
 
