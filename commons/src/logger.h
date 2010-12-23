@@ -1,3 +1,6 @@
+#ifndef LOGGER_H
+#define LOGGER_H
+
 #include <syslog.h>
 
 #define SYSLOG(level, format, args...) \
@@ -8,3 +11,5 @@
 #define WARNING(format, args...) SYSLOG(LOG_WARNING, format, ## args)
 #define INFO(format, args...) SYSLOG(LOG_INFO, format, ## args)
 #define DEBUG(format, args...) SYSLOG(LOG_DEBUG, format, ## args)
+
+#endif /* LOGGER_H */
