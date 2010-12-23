@@ -23,7 +23,7 @@
 #define MAX_MONGOOSE_OPTIONS 3
 
 // mongoose options
-#define DEFAULT_DOCUMENT_ROOT "/var/lib/nitch-httpd"
+#define DEFAULT_DOCUMENT_ROOT "/var/lib/nitch-httpd/www"
 #define DEFAULT_LISTENING_PORTS "8080"
 #define DEFAULT_ERROR_LOG_FILE "/var/log/nitch-httpd.err"
 

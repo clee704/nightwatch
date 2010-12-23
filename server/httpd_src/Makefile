@@ -21,9 +21,12 @@ clean:
 install:
 	install -d $(prefix)/bin
 	install -m 0755 $(target) $(prefix)/bin
+	install -d /var/lib/$(target)
+	cp -a ./www /var/lib/$(target)/www
 
 uninstall:
 	rm -f $(prefix)/bin/$(target)
+	rm -rf /var/lib/$(target)
 
 #
 # Objects
