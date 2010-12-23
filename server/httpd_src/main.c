@@ -19,14 +19,17 @@
 
 #define LOGGER_PREFIX "[main] "
 
-// Whenever you add more command-line options, update MAX_OPTIONS accordingly
-#define MAX_OPTIONS 5
+// Whenever you add more mongoose options, update MAX_OPTIONS accordingly
+#define MAX_MONGOOSE_OPTIONS 3
 
+// mongoose options
 #define DEFAULT_DOCUMENT_ROOT "/var/lib/nitch-httpd"
 #define DEFAULT_LISTENING_PORTS "8080"
 #define DEFAULT_ERROR_LOG_FILE "/var/log/nitch-httpd.err"
+
+// Other options
 #define DEFAULT_PID_FILE "/var/run/nitch-httpd.pid"
-#define DEFAULT_SOCKET "/var/run/nitch-sleepd.sock"
+#define DEFAULT_SOCK_FILE "/var/run/nitch-sleepd.sock"
 
 static void get_commandline_options(int argc, char **argv,
                                     const char **mg_options,
@@ -48,7 +51,7 @@ static const char *pid_file;   // filename of the pid file
 static const char *sock_file;  // filename for the sleep proxy's socket to connect
 
 int main(int argc, char **argv) {
-    const char *mg_options[MAX_OPTIONS * 2 + 1];
+    const char *mg_options[MAX_MONGOOSE_OPTIONS * 2 + 1];
 
     exit_if_not_root(program_invocation_short_name);
     get_commandline_options(argc, argv, mg_options, &pid_file, &sock_file);
@@ -63,13 +66,13 @@ static void get_commandline_options(int argc, char **argv,
                                     const char **pid_file,
                                     const char **sock_file)
 {
-    static const char *short_options = "s:p:d:l:e:h";
+    static const char *short_options = "i:s:d:p:e:h";
     static struct option long_options[] = {
-        {"document-root", required_argument, 0, 'd'},
-        {"listening-ports", required_argument, 0, 'l'},
-        {"error-log-file", required_argument, 0, 'e'},
-        {"pid-file", required_argument, 0, 'p'},
+        {"pid-file", required_argument, 0, 'i'},
         {"socket", required_argument, 0, 's'},
+        {"document-root", required_argument, 0, 'd'},
+        {"listening-ports", required_argument, 0, 'p'},
+        {"error-log-file", required_argument, 0, 'e'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
@@ -79,7 +82,7 @@ static void get_commandline_options(int argc, char **argv,
     int c;
 
     *pid_file = DEFAULT_PID_FILE;
-    *sock_file = DEFAULT_SOCKET;
+    *sock_file = DEFAULT_SOCK_FILE;
 
     // Get arguments
     while (1) {
@@ -88,11 +91,11 @@ static void get_commandline_options(int argc, char **argv,
         if (c == -1)  // end of the options
             break;
         switch (c) {
-        case 'd': document_root = optarg; break;
-        case 'l': listening_ports = optarg; break;
-        case 'e': error_log_file = optarg; break;
-        case 'p': *pid_file = optarg; break;
+        case 'i': *pid_file = optarg; break;
         case 's': *sock_file = optarg; break;
+        case 'd': document_root = optarg; break;
+        case 'p': listening_ports = optarg; break;
+        case 'e': error_log_file = optarg; break;
         case 'h': display_help_and_exit(); break;
         case '?':
             // getopt_long already printed an error message
@@ -117,21 +120,23 @@ static void display_help_and_exit()
     printf("Usage: %s [option]...\n"
         "\n"
         "Options:\n"
-        "  -d, --document-root=DIRECTORY  set the document root\n"
-        "                                   (defaults to %s)\n"
-        "  -l, --listening-ports=PORTS    set the listening ports\n"
-        "                                   (defaults to %s)\n"
-        "  -e, --error-log-file=FILE      set the error log file\n"
-        "                                   (defaults to %s)\n"
-        "  -p, --pid-file=FILE            set the PID file\n"
-        "                                   (defaults to %s)\n"
-        "  -s, --socket=FILE              locate nitch-sleepd's socket file\n"
-        "                                   (defaults to %s)\n"
-        "  -h, --help                     display this help and exit\n"
-        "\n",
-        program_invocation_short_name, DEFAULT_DOCUMENT_ROOT,
-        DEFAULT_LISTENING_PORTS, DEFAULT_ERROR_LOG_FILE, DEFAULT_PID_FILE,
-        DEFAULT_SOCKET);
+        "  -i, --pid-file=FILE          PID file\n"
+        "  -s, --socket=FILE            the sleep proxy server's socket file\n"
+        "  -d, --document-root=DIR      document root for the web server\n"
+        "  -p, --listening-ports=PORTS  ports on which the web server listens\n"
+        "                               for HTTP requests\n"
+        "  -e, --error-log-file=FILE    file for the web server to log errors\n"
+        "  -h, --help                   display this help and exit\n"
+        "\n"
+        "Default values:\n"
+        "  pid-file=%s\n"
+        "  socket=%s\n"
+        "  document-root=%s\n"
+        "  listening-ports=%s\n"
+        "  error-log-file=%s\n",
+        program_invocation_short_name,
+        DEFAULT_PID_FILE, DEFAULT_SOCK_FILE, DEFAULT_DOCUMENT_ROOT,
+        DEFAULT_LISTENING_PORTS, DEFAULT_ERROR_LOG_FILE);
     exit(0);
 }
 
