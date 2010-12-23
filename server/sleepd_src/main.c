@@ -9,6 +9,8 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include <getopt.h>
+
 #include "agent.h"
 #include "agent_handler.h"
 #include "ui_handler.h"
@@ -59,16 +61,66 @@ static void get_commandline_options(int argc, char **argv,
                                     int *port1,
                                     int *port2)
 {
-    // TODO impl
+    static const char *short_options = "i:s:p:a:h";
+    static struct option long_options[] = {
+        {"pid-file", required_argument, 0, 'i'},
+        {"socket", required_argument, 0, 's'},
+        {"listening-port", required_argument, 0, 'p'},
+        {"listening-port-on-agent", required_argument, 0, 'a'},
+        {"help", no_argument, 0, 'h'},
+        {0, 0, 0, 0}
+    };
+    int c;
+
     *pid_file = DEFAULT_PID_FILE;
     *sock_file = DEFAULT_SOCK_FILE;
     *port1 = DEFAULT_LISTENING_PORT;
     *port2 = DEFAULT_LISTENING_PORT_ON_AGENT;
+
+    // Get arguments
+    while (1) {
+        int opt_index;
+        c = getopt_long(argc, argv, short_options, long_options, &opt_index);
+        if (c == -1)  // end of the options
+            break;
+        switch (c) {
+        case 'i': *pid_file = optarg; break;
+        case 's': *sock_file = optarg; break;
+        case 'p': *port1 = atoi(optarg); break;
+        case 'a': *port2 = atoi(optarg); break;
+        case 'h': display_help_and_exit(); break;
+        case '?':
+            // getopt_long already printed an error message
+            exit(1);
+        default:
+            abort();
+        }
+    }
 }
 
 static void display_help_and_exit()
 {
-    // TODO impl
+    printf("Usage: %s [option]...\n"
+        "\n"
+        "Options:\n"
+        "  -i, --pid-file=FILE                PID file\n"
+        "  -s, --socket=FILE                  socket file to use for receiving\n"
+        "                                     requests from the web server\n"
+        "  -p, --listening-port=NUM           ports on which the sleep proxy\n"
+        "                                     server listens for connections\n"
+        "                                     from agents\n"
+        "  -a, --listening-port-on-agent=NUM  ports on which agents listens\n"
+        "  -h, --help                         display this help and exit\n"
+        "\n"
+        "Default values:\n"
+        "  pid-file=%s\n"
+        "  socket=%s\n"
+        "  listening-port=%d\n"
+        "  listening-port-on-agent=%d\n",
+        program_invocation_short_name,
+        DEFAULT_PID_FILE, DEFAULT_SOCK_FILE, DEFAULT_LISTENING_PORT,
+        DEFAULT_LISTENING_PORT_ON_AGENT);
+    exit(0);
 }
 
 static void cleanup()
