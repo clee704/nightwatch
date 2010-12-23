@@ -11,7 +11,7 @@ notifier:
 	cd notifier_src; $(MAKE)
 
 install:
-	cp 01_nitch_reporter.sh /etc/pm/sleep.d/;
+	cp 44_nitch-notifier /etc/pm/sleep.d/;
 	cp notifier_src/nitch-notifier /usr/local/bin/
 
 clean:

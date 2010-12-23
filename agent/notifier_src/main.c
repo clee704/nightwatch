@@ -1,15 +1,15 @@
-#include <sys/types.h> 
-#include <syslog.h>
-#include <sys/stat.h> 
-#include <sys/socket.h> 
-#include <unistd.h> 
-#include <sys/un.h> 
-#include <stdio.h> 
-#include <stdlib.h> 
-#include <string.h> 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-int
-main(void){
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <syslog.h>
+#include <unistd.h>
+
+int main(void){
 	int reporter_fd;
 
 	struct sockaddr_un reporter_addr;
@@ -27,7 +27,7 @@ main(void){
 		return 0;
 	}
 	syslog(LOG_DEBUG, "connection estabilished");
-	
+
 	close(reporter_fd);
 
 	return 0;

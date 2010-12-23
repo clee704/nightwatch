@@ -13,6 +13,12 @@ all: $(target)
 $(target): $(objects)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
+clean:
+	rm -f $(target) $(objects)
+
+#
+# Objects
+#
 main.o: %.o: %.c \
   ajax_handler.h daemon.h logger.h protocol.h mongoose.h
 
@@ -32,11 +38,8 @@ message_exchange.o: %.o: %.c %.h \
   logger.h network.h protocol.h
 
 #
-# Library
+# Library object
 #
 mongoose.o: %.o: %.c %.h
-
-clean:
-	rm -f $(target) $(objects)
 
 .PHONY: all clean

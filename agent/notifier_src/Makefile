@@ -1,5 +1,5 @@
 target = nitch-notifier
-source = reporter.c
+source = main.c
 object = $(source:.c=.o)
 
 CC = gcc
@@ -8,11 +8,11 @@ CFLAGS = -W -Wall -O2
 all: $(target)
 
 $(target): $(object)
-	$(CC) -o $@ $^
-
-$(object) : $(source)
+	$(CC) $(CFLAGS) -o $@ $^
 
 clean:
-	rm -rf $(target) $(object)
+	rm -f $(target) $(object)
+
+main.o: %.o: %.c
 
 .PHONY: clean all

@@ -10,12 +10,16 @@ CFLAGS = -W -Wall -O2 -D_REENTRANT -I../../commons/src
 LDFLAGS = -lpthread -lpcap
 
 all: $(target)
+
 $(target): $(objects)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 clean:
 	rm -f $(target) $(objects)
 
+#
+# Objects
+#
 main.o: %.o: %.c \
   agent.h agent_handler.h ui_handler.h packet_monitor.h daemon.h logger.h
 

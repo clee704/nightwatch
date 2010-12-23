@@ -3,8 +3,8 @@
                    <https://github.com/clee704/nightwatch>
 
 Nightwatch is a set of programs to reduce overall power consumption of Linux
-deivces within LAN by sleeping the devices and waking them up only when needed.
+deivces within LAN by sleeping idle devices and waking them up when needed.
 
 Nightwatch consists of two parts: A server that manages other devices and
-handles TCP/IP packets to sleeping devices and an agent that resides in devices
-to be managed, monitors the devices, etc.
+monitors TCP/IP packets, and agents that resides in devices to be managed.
+
